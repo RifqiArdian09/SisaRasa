@@ -1,36 +1,44 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# SisaRasa - README
 
-## Getting Started
+## Setup Admin User
 
-First, run the development server:
+To add an admin user to your Supabase project, you can use the SQL script located at `supabase/seed.sql`.
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+**IMPORTANT: Before running the SQL, you must first create a user via Supabase Authentication and then use that user's ID.**
+
+### Steps:
+
+1.  **Register an Admin Account**: Create a user account (e.g., using `admin@sisarasa.com`) through the Supabase authentication system. You can do this by:
+    *   Registering through the SisaRasa application's `/register` page once it's implemented.
+    *   Manually adding a user in the Supabase Studio dashboard under "Authentication" -> "Users" -> "Invite User" or "Add user".
+
+2.  **Retrieve User ID**: After the user is created, go to Supabase Studio, navigate to "Authentication" -> "Users", and copy the `ID` (UUID) of the user you just created.
+
+3.  **Update `supabase/seed.sql`**: Open the `supabase/seed.sql` file in this project and replace `'YOUR_EXISTING_AUTH_USER_ID'` with the actual `ID` you copied from the `auth.users` table.
+
+4.  **Execute SQL Query**: 
+    *   Go to your Supabase project dashboard.
+    *   Navigate to the "SQL Editor" section.
+    *   Copy the updated content of `supabase/seed.sql`.
+    *   Paste the SQL into the editor and click "Run" to execute it.
+
+Example `supabase/seed.sql` content (after replacing the placeholder):
+
+```sql
+-- Insert an admin user into public.users with an existing auth.users ID.
+-- Before running this, ensure you have an existing user in auth.users table.
+-- 1. Register a user (e.g., admin@sisarasa.com) through Supabase Auth (e.g., via the app's register page or Supabase Studio).
+-- 2. Get the 'id' of that newly registered user from the 'auth.users' table.
+-- 3. Replace 'YOUR_EXISTING_AUTH_USER_ID' below with that actual ID.
+INSERT INTO users (id, role, name, email, phone, avatar_url, fcm_token)
+VALUES
+  (
+    '5c23820d-a063-41ad-9672-b09e3940f7ed', -- <<< EXAMPLE ID, REPLACE THIS
+    'admin',
+    'Admin User',
+    'admin@sisarasa.com',
+    '+6281234567890',
+    NULL,
+    NULL
+  );
 ```
-
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
-
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
-
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
-
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
