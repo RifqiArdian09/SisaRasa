@@ -259,18 +259,49 @@ export default function MerchantOrdersPage() {
                 </div>
 
                 {/* Customer Details Card */}
-                <div className="bg-cream-bg/50 rounded-xl p-4 grid grid-cols-1 sm:grid-cols-3 gap-3">
-                  <div className="flex items-center gap-2">
-                    <User className="w-4 h-4 text-primary-teal shrink-0" />
-                    <span className="text-xs text-dark font-bold truncate">{order.users?.name || 'Customer'}</span>
+                <div className="bg-cream-bg/50 rounded-xl p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 border border-dark/5">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-full bg-primary-teal/10 flex items-center justify-center shrink-0">
+                      <User className="w-5 h-5 text-primary-teal" />
+                    </div>
+                    <div>
+                      <p className="text-[10px] text-dark/50 font-bold uppercase tracking-wider">Pemesan</p>
+                      <p className="text-sm text-dark font-extrabold truncate">{order.users?.name || 'Customer'}</p>
+                    </div>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <Phone className="w-4 h-4 text-primary-teal shrink-0" />
-                    <span className="text-xs text-dark/70 truncate">{order.users?.phone || '-'}</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Mail className="w-4 h-4 text-primary-teal shrink-0" />
-                    <span className="text-xs text-dark/70 truncate">{order.users?.email || '-'}</span>
+                  
+                  <div className="flex flex-wrap items-center gap-2">
+                    {order.users?.phone ? (
+                      <a 
+                        href={`https://wa.me/${order.users.phone.replace(/[^0-9]/g, '')}`} 
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#25D366]/10 text-[#128C7E] hover:bg-[#25D366]/20 transition-colors border border-[#25D366]/20"
+                      >
+                        <Phone className="w-3.5 h-3.5" />
+                        <span className="text-xs font-bold">{order.users.phone}</span>
+                      </a>
+                    ) : (
+                      <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-dark/5 text-dark/40 border border-dark/5">
+                        <Phone className="w-3.5 h-3.5" />
+                        <span className="text-xs font-semibold">Tidak ada nomor</span>
+                      </div>
+                    )}
+
+                    {order.users?.email ? (
+                      <a 
+                        href={`mailto:${order.users.email}`}
+                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary-teal/10 text-primary-teal hover:bg-primary-teal/20 transition-colors border border-primary-teal/20"
+                      >
+                        <Mail className="w-3.5 h-3.5" />
+                        <span className="text-xs font-bold">{order.users.email}</span>
+                      </a>
+                    ) : (
+                      <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-dark/5 text-dark/40 border border-dark/5">
+                        <Mail className="w-3.5 h-3.5" />
+                        <span className="text-xs font-semibold">Tidak ada email</span>
+                      </div>
+                    )}
                   </div>
                 </div>
 

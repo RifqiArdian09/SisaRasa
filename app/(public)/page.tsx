@@ -19,7 +19,6 @@ import {
   Clock,
   ShieldCheck,
   ShoppingBag,
-  MapPin,
   Heart,
   TrendingUp,
   Users,
@@ -27,14 +26,7 @@ import {
   CheckCircle,
 } from 'lucide-react'
 
-const LeafletMap = dynamic(() => import('@/components/map/LeafletMap'), {
-  ssr: false,
-  loading: () => (
-    <div className="h-[400px] rounded-2xl bg-dark/5 animate-pulse flex items-center justify-center">
-      <MapPin className="w-6 h-6 text-dark/30" />
-    </div>
-  ),
-})
+
 
 const stats = [
   { icon: Leaf, value: '12.450+', label: 'Makanan Terselamatkan' },
@@ -579,50 +571,7 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* ════════════════════════════════════════════ */}
-      {/* MAP PREVIEW SECTION */}
-      {/* ════════════════════════════════════════════ */}
-      <section className="py-20 bg-cream-bg">
-        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-          <div className="flex flex-col lg:flex-row gap-10 items-center">
-            <div className="flex-1">
-              <h2 className="text-3xl sm:text-4xl font-poppins font-extrabold text-dark mb-3">
-                Temukan Toko Terdekat
-              </h2>
-              <p className="text-dark/60 mb-6 max-w-md">
-                Cari UMKM dengan makanan diskon di sekitar lokasi kamu. Semakin dekat, semakin hemat!
-              </p>
-              <div className="space-y-3 mb-6">
-                {[
-                  { icon: MapPin, text: 'Lihat toko UMKM terdekat di peta interaktif' },
-                  { icon: Clock, text: 'Cek jam operasional dan jarak toko' },
-                  { icon: ShieldCheck, text: 'Semua mitra telah terverifikasi' },
-                ].map((item) => {
-                  const Icon = item.icon
-                  return (
-                    <div key={item.text} className="flex items-center gap-3">
-                      <div className="flex items-center justify-center w-9 h-9 rounded-xl bg-primary-teal/10 text-primary-teal shrink-0">
-                        <Icon className="w-4 h-4" />
-                      </div>
-                      <p className="text-sm text-dark/70">{item.text}</p>
-                    </div>
-                  )
-                })}
-              </div>
-              <Link
-                href="/map"
-                className="inline-flex items-center gap-2 py-3 px-6 rounded-xl bg-primary-teal text-white font-poppins font-bold text-sm shadow-lg shadow-primary-teal/25 hover:-translate-y-0.5 transition-all"
-              >
-                <MapPin className="w-4 h-4" />
-                Buka Peta
-              </Link>
-            </div>
-            <div className="flex-1 w-full">
-              <LeafletMap height="400px" />
-            </div>
-          </div>
-        </div>
-      </section>
+
 
       {/* ════════════════════════════════════════════ */}
       {/* CTA BANNER */}

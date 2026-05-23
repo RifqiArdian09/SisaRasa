@@ -8,10 +8,12 @@ import {
   Heart,
   MessageCircle,
   User,
+  Utensils,
 } from 'lucide-react'
 
 const navItems = [
   { href: '/dashboard', icon: LayoutDashboard, label: 'Beranda' },
+  { href: '/foods', icon: Utensils, label: 'Jelajahi' },
   { href: '/orders', icon: ShoppingBag, label: 'Pesanan' },
   { href: '/favorites', icon: Heart, label: 'Favorit' },
   { href: '/chat', icon: MessageCircle, label: 'Chat' },
@@ -20,38 +22,41 @@ const navItems = [
 
 export default function CustomerLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
+  const showBottomNav = navItems.some(item => item.href === pathname)
 
   return (
-    <div className="min-h-screen bg-cream-bg font-sans flex flex-col">
-      <main className="flex-1 pb-20 md:pb-0">
-        {children}
-      </main>
+    <div className="h-[100dvh] bg-gray-100 flex justify-center font-sans text-[#080C1A] overflow-hidden">
+      <div className="w-full max-w-md bg-[#F3F6F8] h-full relative shadow-2xl flex flex-col overflow-hidden">
+        <main className="flex-1 overflow-y-auto scrollbar-hide pb-4">
+          {children}
+        </main>
 
-      {/* Bottom Navigation Mobile */}
-      <nav className="fixed bottom-0 left-0 right-0 z-50 bg-white border-t border-dark/5 shadow-xl md:hidden">
-        <div className="flex items-center justify-around px-2 py-2">
+        {/* Bottom Navigation */}
+        {showBottomNav && (
+          <nav className="shrink-0 z-50 bg-white/80 backdrop-blur-lg border-t border-[#E5E7EB] pb-safe">
+        <div className="flex items-center justify-around px-2 py-1.5">
           {navItems.map(({ href, icon: Icon, label }) => {
             const isActive = pathname === href || pathname.startsWith(href + '/')
             return (
               <Link
                 key={href}
                 href={href}
-                className={`flex flex-col items-center gap-0.5 px-3 py-1.5 rounded-xl transition-all ${
-                  isActive ? 'text-primary-orange' : 'text-dark/40 hover:text-dark/70'
+                className={`flex flex-col items-center gap-0.5 px-3 py-2 rounded-xl transition-all relative ${
+                  isActive ? 'text-white' : 'text-[#6A7686]'
                 }`}
               >
-                <Icon className={`w-5 h-5 transition-transform ${isActive ? 'scale-110' : ''}`} />
-                <span className={`text-[10px] font-bold ${isActive ? 'text-primary-orange' : 'text-dark/40'}`}>
-                  {label}
-                </span>
                 {isActive && (
-                  <span className="w-1 h-1 rounded-full bg-primary-orange" />
+                  <div className="absolute inset-0 bg-[#0F766E] rounded-xl" />
                 )}
+                <Icon className={`w-5 h-5 relative ${isActive ? '' : ''}`} />
+                <span className="text-[10px] font-bold relative">{label}</span>
               </Link>
             )
           })}
         </div>
-      </nav>
+        </nav>
+        )}
+      </div>
     </div>
   )
 }

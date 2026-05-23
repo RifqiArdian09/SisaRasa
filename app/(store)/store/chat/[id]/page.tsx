@@ -3,7 +3,7 @@
 import React, { useEffect, useState, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useParams, useRouter } from 'next/navigation'
-import { Send, ArrowLeft, Store } from 'lucide-react'
+import { Send, ArrowLeft, User } from 'lucide-react'
 import Image from 'next/image'
 import { toast } from 'sonner'
 
@@ -18,11 +18,11 @@ interface Message {
 
 interface Conversation {
   id: string
-  store_id: string
-  stores: { store_name: string; logo_url: string }
+  customer_id: string
+  users: { name: string; avatar_url: string }
 }
 
-export default function ChatDetailPage() {
+export default function StoreChatDetailPage() {
   const supabase = createClient()
   const params = useParams()
   const router = useRouter()
@@ -45,10 +45,9 @@ export default function ChatDetailPage() {
 
         const { data: convData } = await supabase
           .from('conversations')
-          .select('id, store_id, stores(store_name, logo_url)')
+          .select('id, customer_id, users(name, avatar_url)')
           .eq('id', conversationId)
           .single()
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         if (convData) setConv(convData as any)
 
         const { data: msgs } = await supabase
@@ -58,13 +57,14 @@ export default function ChatDetailPage() {
           .order('created_at', { ascending: true })
         setMessages(msgs || [])
 
+        // Mark as read
         await supabase
           .from('messages')
           .update({ is_read: true })
           .eq('conversation_id', conversationId)
           .neq('sender_id', user.id)
       } catch (err: any) {
-        toast.error(`Gagal memuat percakapan: ${err?.message || 'Unknown error'}`)
+        toast.error(`Gagal memuat percakapan: ${err?.message}`)
       } finally {
         setLoading(false)
       }
@@ -72,11 +72,13 @@ export default function ChatDetailPage() {
     init()
 
     const channel = supabase
-      .channel(`chat-${conversationId}`)
+      .channel(`store-chat-${conversationId}`)
       .on('postgres_changes',
         { event: 'INSERT', schema: 'public', table: 'messages', filter: `conversation_id=eq.${conversationId}` },
         (payload) => {
           setMessages(prev => [...prev, payload.new as Message])
+          // mark incoming as read immediately
+          supabase.from('messages').update({ is_read: true }).eq('id', (payload.new as any).id)
         }
       )
       .subscribe()
@@ -108,49 +110,49 @@ export default function ChatDetailPage() {
     }
   }
 
-  const store = (conv?.stores) as any
+  const customer = (conv?.users) as any
 
   return (
-    <div className="flex flex-col h-full bg-[#F8FAFC]">
+    <div className="flex flex-col h-[calc(100vh-120px)] bg-[#F8FAFC] rounded-2xl overflow-hidden border border-dark/5 shadow-sm">
       {/* Header */}
-      <div className="bg-white border-b border-dark/5 px-4 py-3 flex items-center gap-3 shrink-0 shadow-sm">
+      <div className="bg-white border-b border-dark/5 px-5 py-4 flex items-center gap-3 shrink-0 shadow-sm">
         <button
           onClick={() => router.back()}
           className="p-2 rounded-xl hover:bg-[#F3F6F8] text-dark/60 transition-colors"
         >
           <ArrowLeft className="w-5 h-5" />
         </button>
-        <div className="w-9 h-9 rounded-full bg-primary-teal/10 flex items-center justify-center shrink-0">
-          <Store className="w-5 h-5 text-primary-teal" />
+        <div className="w-10 h-10 rounded-full bg-primary-orange/10 flex items-center justify-center shrink-0">
+          <User className="w-5 h-5 text-primary-orange" />
         </div>
         <div className="flex-1 min-w-0">
           <h2 className="font-bold text-sm text-dark truncate">
-            {loading ? '...' : store?.store_name || 'Toko'}
+            {loading ? '...' : customer?.name || 'Pelanggan'}
           </h2>
           <p className="text-[10px] text-primary-teal font-semibold">● Online</p>
         </div>
       </div>
 
-      {/* Messages - scrollable */}
-      <div className="flex-1 overflow-y-auto px-4 py-5 space-y-3 scrollbar-hide">
+      {/* Messages */}
+      <div className="flex-1 overflow-y-auto px-5 py-5 space-y-3 scrollbar-hide">
         {loading ? (
           <div className="flex items-center justify-center h-full">
             <div className="w-8 h-8 border-2 border-primary-teal border-t-transparent rounded-full animate-spin" />
           </div>
         ) : messages.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-full text-center pb-10">
-            <div className="w-16 h-16 rounded-full bg-primary-teal/10 flex items-center justify-center mb-3">
-              <Store className="w-8 h-8 text-primary-teal/50" />
+          <div className="flex flex-col items-center justify-center h-full text-center">
+            <div className="w-16 h-16 rounded-full bg-primary-orange/10 flex items-center justify-center mb-3">
+              <User className="w-8 h-8 text-primary-orange/50" />
             </div>
-            <p className="text-sm font-bold text-dark/50">Mulai percakapan</p>
-            <p className="text-xs text-dark/35 mt-1">Tanyakan ketersediaan atau detail makanan</p>
+            <p className="text-sm font-bold text-dark/50">Belum ada pesan</p>
+            <p className="text-xs text-dark/35 mt-1">Balas pertanyaan pelanggan di sini</p>
           </div>
         ) : (
           messages.map(msg => {
             const isMe = msg.sender_id === userId
             return (
               <div key={msg.id} className={`flex ${isMe ? 'justify-end' : 'justify-start'}`}>
-                <div className={`max-w-[78%] rounded-2xl px-4 py-2.5 shadow-sm ${
+                <div className={`max-w-[72%] rounded-2xl px-4 py-2.5 shadow-sm ${
                   isMe
                     ? 'bg-primary-teal text-white rounded-br-sm'
                     : 'bg-white border border-dark/5 text-dark rounded-bl-sm'
@@ -173,20 +175,20 @@ export default function ChatDetailPage() {
         <div ref={bottomRef} />
       </div>
 
-      {/* Input - pinned to bottom */}
-      <div className="bg-white border-t border-dark/5 px-4 py-3 flex items-center gap-2 shrink-0 pb-safe">
+      {/* Input */}
+      <div className="bg-white border-t border-dark/5 px-5 py-4 flex items-center gap-3 shrink-0">
         <input
           type="text"
           value={text}
           onChange={e => setText(e.target.value)}
           onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend() } }}
-          placeholder="Tulis pesan..."
-          className="flex-1 px-4 py-2.5 rounded-2xl bg-[#F3F6F8] border border-dark/5 text-sm text-dark placeholder-dark/35 focus:border-primary-teal focus:ring-2 focus:ring-primary-teal/10 outline-none transition-all"
+          placeholder="Balas pesan pelanggan..."
+          className="flex-1 px-4 py-3 rounded-2xl bg-[#F3F6F8] border border-dark/5 text-sm text-dark placeholder-dark/35 focus:border-primary-teal focus:ring-2 focus:ring-primary-teal/10 outline-none transition-all"
         />
         <button
           onClick={handleSend}
           disabled={!text.trim() || sending}
-          className="w-10 h-10 rounded-2xl bg-primary-teal text-white disabled:opacity-40 hover:bg-primary-teal/90 transition-all active:scale-95 flex items-center justify-center shrink-0 shadow-md shadow-primary-teal/20"
+          className="w-11 h-11 rounded-2xl bg-primary-teal text-white disabled:opacity-40 hover:bg-primary-teal/90 transition-all active:scale-95 flex items-center justify-center shrink-0 shadow-md shadow-primary-teal/20"
         >
           <Send className="w-4 h-4" />
         </button>

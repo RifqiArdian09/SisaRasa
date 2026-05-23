@@ -62,6 +62,7 @@ export default function StoreLayout({ children }: StoreLayoutProps) {
     { href: '/store/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
     { href: '/store/products', icon: ShoppingBag, label: 'Produk' },
     { href: '/store/orders', icon: ClipboardList, label: 'Pesanan' },
+    { href: '/store/chat', icon: MessageSquare, label: 'Pesan', badge: undefined as number | undefined },
     { href: '/store/analytics', icon: BarChart3, label: 'Analitik' },
     { href: '/store/reviews', icon: Star, label: 'Ulasan' },
     { href: '/store/notifications', icon: Bell, label: 'Notifikasi', badge: unreadNotifsCount > 0 ? unreadNotifsCount : undefined },
@@ -94,6 +95,13 @@ export default function StoreLayout({ children }: StoreLayoutProps) {
     analytics: 'Analitik', reviews: 'Ulasan', notifications: 'Notifikasi', settings: 'Pengaturan',
   }
   const displayTitle = titleMap[pageTitle] ?? pageTitle
+
+  // title map
+  const titleMapFull: Record<string, string> = {
+    dashboard: 'Dashboard', products: 'Produk', orders: 'Pesanan',
+    analytics: 'Analitik', reviews: 'Ulasan', notifications: 'Notifikasi',
+    settings: 'Pengaturan', chat: 'Pesan Masuk',
+  }
 
   return (
     <div className="flex h-screen max-h-screen overflow-hidden bg-[#F3F6F8] text-[#080C1A] font-sans">

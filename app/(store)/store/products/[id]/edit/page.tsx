@@ -85,8 +85,11 @@ export default function EditProductPage() {
         setExistingThumbnailUrl(product.thumbnail_url || '')
 
         const expiredDateTime = new Date(product.expired_at)
-        setExpiredDate(expiredDateTime.toISOString().split('T')[0])
-        setExpiredTime(expiredDateTime.toTimeString().split(' ')[0].substring(0, 5))
+        const pad = (n: number) => String(n).padStart(2, '0')
+        setExpiredDate(
+          `${expiredDateTime.getFullYear()}-${pad(expiredDateTime.getMonth() + 1)}-${pad(expiredDateTime.getDate())}`
+        )
+        setExpiredTime(`${pad(expiredDateTime.getHours())}:${pad(expiredDateTime.getMinutes())}`)
 
       } catch (err) {
         toast.error('Terjadi kesalahan saat memuat data produk.')

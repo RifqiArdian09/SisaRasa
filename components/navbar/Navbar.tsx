@@ -4,14 +4,13 @@ import React, { useEffect, useState } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
 import { usePathname } from 'next/navigation'
-import { Menu, X, Search, MapPin, Store, ChevronDown } from 'lucide-react'
+import { Menu, X, Search, Store, ChevronDown } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import type { User } from '@supabase/supabase-js'
 
 const navLinks = [
   { label: 'Beranda', href: '/' },
   { label: 'Jelajahi', href: '/foods', icon: Search },
-  { label: 'Peta', href: '/map', icon: MapPin },
   { label: 'Jadi Mitra', href: '/register?role=store', icon: Store },
 ]
 

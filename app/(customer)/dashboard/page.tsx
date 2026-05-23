@@ -3,6 +3,7 @@
 import React, { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import Link from 'next/link'
+import Image from 'next/image'
 import {
   ShoppingBag,
   Heart,
@@ -39,7 +40,6 @@ const quickLinks = [
   { href: '/foods', label: 'Jelajahi Makanan', icon: Utensils, color: 'bg-primary-orange/10 text-primary-orange', desc: 'Temukan menu diskon hari ini' },
   { href: '/favorites', label: 'Toko Favorit', icon: Heart, color: 'bg-red-100 text-red-500', desc: 'Pantau toko yang kamu suka' },
   { href: '/orders', label: 'Riwayat Pesanan', icon: ShoppingBag, color: 'bg-primary-teal/10 text-primary-teal', desc: 'Lihat semua pesananmu' },
-  { href: '/map', label: 'Peta Terdekat', icon: MapPin, color: 'bg-blue-100 text-blue-600', desc: 'Cari toko di sekitar kamu' },
 ]
 
 const STATUS_MAP: Record<string, { label: string; class: string }> = {
@@ -120,9 +120,9 @@ export default function CustomerDashboardPage() {
     new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(v)
 
   return (
-    <div className="min-h-screen bg-cream-bg">
+    <div className="min-h-full bg-[#F8FAFC]">
       {/* Top Header */}
-      <div className="bg-gradient-to-br from-primary-orange via-orange-500 to-amber-500 pt-safe px-5 pb-8 relative overflow-hidden">
+      <div className="bg-gradient-to-br from-primary-orange via-[#FF7A00] to-amber-500 pt-safe px-5 pb-12 relative rounded-b-[40px] shadow-lg">
         <div className="absolute inset-0 opacity-10">
           <div className="absolute top-4 right-4 w-32 h-32 rounded-full bg-white" />
           <div className="absolute -bottom-8 -left-8 w-48 h-48 rounded-full bg-white" />
@@ -133,37 +133,45 @@ export default function CustomerDashboardPage() {
               {loading ? (
                 <div className="h-5 w-32 bg-white/30 rounded animate-pulse mb-1" />
               ) : (
-                <p className="text-white/80 text-sm font-medium">Selamat datang kembali 👋</p>
+                <p className="text-white/80 text-sm font-medium">Selamat datang kembali</p>
               )}
               <h1 className="text-white font-poppins font-extrabold text-xl tracking-tight">
                 {loading ? <span className="inline-block h-6 w-40 bg-white/30 rounded animate-pulse" /> : profile?.name || 'Pengguna'}
               </h1>
             </div>
-            <Link href="/profile" className="w-10 h-10 rounded-full bg-white/20 border border-white/30 flex items-center justify-center text-white font-bold text-sm">
-              {profile?.name?.[0]?.toUpperCase() || '?'}
+            <Link href="/profile" className="relative w-10 h-10 rounded-full bg-white/20 border border-white/30 flex items-center justify-center text-white font-bold text-sm overflow-hidden shrink-0">
+              {profile?.avatar_url ? (
+                <Image src={profile.avatar_url} alt="" fill sizes="40px" className="object-cover" />
+              ) : (
+                profile?.name?.[0]?.toUpperCase() || '?'
+              )}
             </Link>
           </div>
 
           {/* Search Bar */}
-          <Link href="/foods" className="flex items-center gap-3 bg-white/95 rounded-2xl px-4 py-3 shadow-lg shadow-black/10">
-            <Search className="w-4 h-4 text-dark/40" />
-            <span className="text-dark/40 text-sm font-medium">Cari makanan diskon...</span>
+          <Link href="/foods" className="flex items-center gap-3 bg-white/20 backdrop-blur-md border border-white/30 rounded-2xl px-4 py-3.5 shadow-sm transition-all active:scale-[0.98]">
+            <Search className="w-5 h-5 text-white" />
+            <span className="text-white/90 text-sm font-medium">Cari makanan diskon...</span>
           </Link>
         </div>
       </div>
 
       {/* Stats Strip */}
-      <div className="px-5 -mt-4 relative z-10">
-        <div className="bg-white rounded-2xl shadow-lg shadow-black/5 border border-dark/5 p-4 grid grid-cols-3 divide-x divide-dark/5">
+      <div className="px-5 -mt-6 relative z-10">
+        <div className="bg-white rounded-3xl shadow-xl shadow-dark/5 border border-dark/5 p-4 flex justify-between">
           {[
             { label: 'Pesanan Selesai', value: stats.totalOrders, icon: ShoppingBag, color: 'text-primary-teal' },
             { label: 'Porsi Terselamatkan', value: stats.savedPortions, icon: Leaf, color: 'text-emerald-600' },
             { label: 'Toko Favorit', value: stats.favoriteStores, icon: Heart, color: 'text-red-500' },
           ].map(({ label, value, icon: Icon, color }) => (
-            <div key={label} className="flex flex-col items-center gap-1 px-3">
-              <Icon className={`w-4 h-4 ${color}`} />
-              <span className="text-lg font-extrabold text-dark font-poppins">{loading ? '—' : value}</span>
-              <span className="text-[9px] text-dark/40 font-semibold text-center leading-tight">{label}</span>
+            <div key={label} className="flex-1 flex flex-col items-center justify-center gap-1.5 px-2 relative after:absolute after:right-0 after:top-1/2 after:-translate-y-1/2 after:h-8 after:w-px after:bg-dark/5 last:after:hidden">
+              <div className={`p-2 rounded-full bg-opacity-10 ${color.replace('text-', 'bg-')}`}>
+                <Icon className={`w-4 h-4 ${color}`} />
+              </div>
+              <div className="text-center">
+                <span className="block text-lg font-extrabold text-dark font-poppins leading-none">{loading ? '—' : value}</span>
+                <span className="block text-[9px] text-dark/40 font-semibold mt-1">{label}</span>
+              </div>
             </div>
           ))}
         </div>
@@ -172,17 +180,14 @@ export default function CustomerDashboardPage() {
       <div className="px-5 py-6 space-y-8">
         {/* Quick Actions */}
         <div>
-          <h2 className="font-poppins font-bold text-dark text-base mb-3">Menu Cepat</h2>
-          <div className="grid grid-cols-2 gap-3">
-            {quickLinks.map(({ href, label, icon: Icon, color, desc }) => (
-              <Link key={href} href={href} className="bg-white rounded-2xl border border-dark/5 shadow-sm p-4 flex flex-col gap-3 hover:shadow-md transition-all active:scale-[0.98]">
-                <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${color}`}>
-                  <Icon className="w-5 h-5" />
+          <h2 className="font-poppins font-bold text-dark text-lg mb-4">Menu Cepat</h2>
+          <div className="grid grid-cols-3 gap-3">
+            {quickLinks.map(({ href, label, icon: Icon, color }) => (
+              <Link key={href} href={href} className="bg-white rounded-3xl border border-dark/5 shadow-sm p-4 flex flex-col items-center text-center gap-3 hover:shadow-md transition-all active:scale-[0.95]">
+                <div className={`w-12 h-12 rounded-2xl flex items-center justify-center ${color}`}>
+                  <Icon className="w-6 h-6" />
                 </div>
-                <div>
-                  <p className="font-bold text-sm text-dark">{label}</p>
-                  <p className="text-[11px] text-dark/50 mt-0.5 leading-tight">{desc}</p>
-                </div>
+                <p className="font-bold text-[11px] text-dark leading-tight">{label}</p>
               </Link>
             ))}
           </div>
@@ -252,7 +257,7 @@ export default function CustomerDashboardPage() {
               <Star className="w-3 h-3" /> Lihat Favorit
             </Link>
           </div>
-          <span className="text-5xl relative z-10">🌿</span>
+          <Leaf className="size-10 text-[#0F766E]/20 relative z-10" />
         </div>
       </div>
     </div>

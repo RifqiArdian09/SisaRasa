@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase/client'
 import { ArrowLeft, Wallet, Store, MapPin, ReceiptText, Loader2, CheckCircle2 } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import Image from 'next/image'
+import LeafletMap from '@/components/map/LeafletMap'
 import { toast } from 'sonner'
 
 export default function CheckoutPage() {
@@ -15,9 +16,22 @@ export default function CheckoutPage() {
   
   const [mounted, setMounted] = useState(false)
   const [loading, setLoading] = useState(false)
-  const [paymentMethod, setPaymentMethod] = useState<'cod' | 'transfer' | 'toko'>('cod')
+  const [paymentMethod] = useState<'cod' | 'transfer' | 'toko'>('toko')
   const [userId, setUserId] = useState<string | null>(null)
   const [success, setSuccess] = useState(false)
+  const [storeDetails, setStoreDetails] = useState<{ address: string, latitude: number, longitude: number } | null>(null)
+
+  useEffect(() => {
+    if (store?.id) {
+      supabase.from('stores')
+        .select('address, latitude, longitude')
+        .eq('id', store.id)
+        .single()
+        .then(({ data }) => {
+          if (data) setStoreDetails(data as any)
+        })
+    }
+  }, [store?.id, supabase])
 
   useEffect(() => {
     setMounted(true)
@@ -156,46 +170,36 @@ export default function CheckoutPage() {
             </div>
             <div>
               <p className="font-bold text-dark text-sm">{store?.store_name}</p>
-              <p className="text-xs text-dark/50 mt-1">Ambil pesanan langsung di toko setelah pesanan disetujui.</p>
+              <p className="text-xs text-dark/50 mt-1 mb-2">{storeDetails?.address || 'Mengambil lokasi...'}</p>
+              <p className="text-[10px] text-dark/40 font-medium">Ambil pesanan langsung di toko setelah pesanan disetujui.</p>
             </div>
           </div>
+          {storeDetails?.latitude && storeDetails?.longitude && (
+            <div className="mt-3 space-y-2 relative z-10">
+              <div className="rounded-xl overflow-hidden border border-dark/5">
+                <LeafletMap 
+                  center={[storeDetails.latitude, storeDetails.longitude]} 
+                  zoom={15} 
+                  markers={[{ lat: storeDetails.latitude, lng: storeDetails.longitude, title: store?.store_name || 'Toko' }]}
+                  height="140px"
+                />
+              </div>
+              <a 
+                href={`https://www.google.com/maps/search/?api=1&query=${storeDetails.latitude},${storeDetails.longitude}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="w-full py-2.5 rounded-xl bg-cream-bg text-primary-teal font-bold text-xs flex items-center justify-center gap-2 hover:bg-primary-teal/10 transition-colors border border-primary-teal/20"
+              >
+                <MapPin className="w-4 h-4" /> Buka di Google Maps
+              </a>
+            </div>
+          )}
         </div>
 
-        {/* Metode Pembayaran */}
-        <div className="bg-white rounded-2xl p-4 shadow-sm border border-dark/5">
-          <div className="flex items-center gap-2 border-b border-dark/5 pb-3 mb-3">
-            <Wallet className="w-5 h-5 text-primary-teal" />
-            <h2 className="font-bold text-dark text-sm">Metode Pembayaran</h2>
-          </div>
-          
-          <div className="space-y-2">
-            {[
-              { id: 'cod', label: 'COD / Cash on Delivery', desc: 'Bayar saat pesanan diantar.' },
-              { id: 'toko', label: 'Bayar di Toko', desc: 'Bayar saat kamu mengambil makanan di toko.' },
-              { id: 'transfer', label: 'Transfer Bank Manual', desc: 'Transfer ke rekening toko.' }
-            ].map(method => (
-              <label key={method.id} className={`flex items-start gap-3 p-3 rounded-xl border cursor-pointer transition-all ${
-                paymentMethod === method.id ? 'border-primary-teal bg-primary-teal/5' : 'border-dark/10 hover:bg-cream-bg'
-              }`}>
-                <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 mt-0.5 ${
-                  paymentMethod === method.id ? 'border-primary-teal' : 'border-dark/30'
-                }`}>
-                  {paymentMethod === method.id && <div className="w-2.5 h-2.5 rounded-full bg-primary-teal" />}
-                </div>
-                <div>
-                  <p className={`text-sm font-bold ${paymentMethod === method.id ? 'text-primary-teal' : 'text-dark'}`}>
-                    {method.label}
-                  </p>
-                  <p className="text-xs text-dark/50 mt-0.5">{method.desc}</p>
-                </div>
-              </label>
-            ))}
-          </div>
-        </div>
       </div>
 
       {/* Bottom Action */}
-      <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-dark/5 p-4 z-20">
+      <div className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-md bg-white border-t border-dark/5 p-4 z-40 pb-safe shadow-[0_-4px_20px_-10px_rgba(0,0,0,0.1)]">
         <button 
           onClick={handleCheckout}
           disabled={loading}
@@ -204,7 +208,7 @@ export default function CheckoutPage() {
           {loading ? (
             <><Loader2 className="w-5 h-5 animate-spin" /> Memproses...</>
           ) : (
-            `Bayar Rp${getTotalPrice().toLocaleString('id-ID')}`
+            `Buat Pesanan (Rp${getTotalPrice().toLocaleString('id-ID')})`
           )}
         </button>
       </div>

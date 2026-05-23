@@ -18,6 +18,13 @@ CREATE POLICY "Users can view their own profile" ON public.users FOR SELECT USIN
 CREATE POLICY "Public can view stores profile" ON public.users FOR SELECT USING (role = 'store');
 CREATE POLICY "Users can update their own profile" ON public.users FOR UPDATE USING (auth.uid() = id);
 CREATE POLICY "Users can insert their own profile" ON public.users FOR INSERT WITH CHECK (auth.uid() = id);
+CREATE POLICY "Store owners can view their customers profile" ON public.users FOR SELECT USING (
+  EXISTS (
+    SELECT 1 FROM public.orders o
+    JOIN public.stores s ON o.store_id = s.id
+    WHERE o.customer_id = users.id AND s.user_id = auth.uid()
+  )
+);
 
 -- STORES
 CREATE POLICY "Stores are viewable by everyone" ON public.stores FOR SELECT USING (true);

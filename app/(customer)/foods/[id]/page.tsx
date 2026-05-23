@@ -184,14 +184,12 @@ export default function FoodDetailPage() {
 
   return (
     <div className="min-h-screen bg-cream-bg pb-24">
-      {/* Back button */}
-      <div className="fixed top-4 left-4 z-30">
-        <button onClick={() => router.back()} className="w-9 h-9 rounded-full bg-white/90 shadow-md flex items-center justify-center">
+      {/* Fixed Header Actions */}
+      <div className="fixed top-4 left-1/2 -translate-x-1/2 w-full max-w-md px-4 z-30 pointer-events-none flex justify-between">
+        <button onClick={() => router.back()} className="w-9 h-9 rounded-full bg-white/90 shadow-md flex items-center justify-center hover:bg-white transition-all pointer-events-auto">
           <ArrowLeft className="w-4 h-4 text-dark" />
         </button>
-      </div>
-      <div className="fixed top-4 right-4 z-30">
-        <button onClick={handleFavorite} className="w-9 h-9 rounded-full bg-white/90 shadow-md flex items-center justify-center">
+        <button onClick={handleFavorite} className="w-9 h-9 rounded-full bg-white/90 shadow-md flex items-center justify-center hover:bg-white transition-all pointer-events-auto">
           <Heart className={`w-4 h-4 ${isFav ? 'fill-red-500 text-red-500' : 'text-dark/50'}`} />
         </button>
       </div>
@@ -334,7 +332,7 @@ export default function FoodDetailPage() {
       </div>
 
       {/* Fixed bottom CTA */}
-      <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-dark/5 px-4 py-3 flex gap-3 z-20">
+      <div className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-md bg-white border-t border-dark/5 px-4 py-3 pb-safe flex gap-3 z-40 shadow-[0_-4px_20px_-10px_rgba(0,0,0,0.1)]">
         <Link
           href={`/chat?store=${store?.id}`}
           className="w-12 h-12 rounded-xl border border-dark/10 flex items-center justify-center text-dark/60 hover:bg-cream-bg transition-colors shrink-0"
@@ -353,8 +351,8 @@ export default function FoodDetailPage() {
 
       {/* Order Modal */}
       {showOrderModal && (
-        <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-end">
-          <div className="w-full bg-white rounded-t-3xl p-5 space-y-5 animate-slide-up">
+        <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-end overflow-hidden justify-center">
+          <div className="w-full max-w-md bg-white rounded-t-3xl p-5 space-y-5 animate-slide-up pb-safe shadow-2xl relative">
             <div className="w-10 h-1 bg-dark/20 rounded-full mx-auto mb-1" />
             <h3 className="font-poppins font-extrabold text-dark text-lg">Tambah ke Keranjang</h3>
 

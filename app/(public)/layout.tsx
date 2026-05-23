@@ -6,7 +6,6 @@ import Footer from '@/components/footer/Footer'
 
 export default function PublicLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
-  const isMapPage = pathname === '/map'
   const isAuthPage = pathname === '/login' || pathname === '/register'
 
   // Auth pages: fullscreen tanpa Navbar dan Footer
@@ -17,8 +16,8 @@ export default function PublicLayout({ children }: { children: React.ReactNode }
   return (
     <>
       <Navbar />
-      <main className={`flex-1 ${isMapPage ? 'pt-16' : ''}`}>{children}</main>
-      {!isMapPage && <Footer />}
+      <main className="flex-1">{children}</main>
+      <Footer />
     </>
   )
 }

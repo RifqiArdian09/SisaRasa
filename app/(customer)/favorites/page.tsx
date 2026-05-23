@@ -68,13 +68,15 @@ export default function FavoritesPage() {
   }
 
   return (
-    <div className="min-h-screen bg-cream-bg">
+    <div className="min-h-full bg-[#F8FAFC]">
       {/* Header */}
-      <div className="bg-white border-b border-dark/5 px-5 pt-12 pb-5 sticky top-0 z-20">
-        <h1 className="font-poppins font-extrabold text-xl text-dark">Toko Favorit</h1>
-        <p className="text-xs text-dark/50 mt-0.5">
-          {loading ? '...' : `${favorites.length} toko tersimpan`}
-        </p>
+      <div className="bg-white px-5 pt-safe pb-4 sticky top-0 z-20 shadow-sm rounded-b-3xl">
+        <div className="mt-4">
+          <h1 className="font-poppins font-extrabold text-2xl text-dark">Toko Favorit</h1>
+          <p className="text-sm text-dark/50 mt-1 font-medium">
+            {loading ? '...' : `${favorites.length} toko tersimpan`}
+          </p>
+        </div>
       </div>
 
       <div className="px-5 py-6 space-y-4">
@@ -101,7 +103,7 @@ export default function FavoritesPage() {
           favorites.map(fav => {
             const store = fav.stores as any
             return (
-              <div key={fav.id} className="bg-white rounded-2xl border border-dark/5 shadow-sm overflow-hidden">
+            <div key={fav.id} className="bg-white rounded-3xl border border-dark/5 shadow-sm overflow-hidden hover:shadow-md transition-all">
                 {/* Banner */}
                 <div className="relative h-24 bg-gradient-to-br from-primary-teal/20 to-light-teal/20">
                   {store.banner_url && (
@@ -133,7 +135,7 @@ export default function FavoritesPage() {
                       <div className="flex items-center gap-2">
                         <h3 className="font-poppins font-bold text-dark text-sm truncate">{store.store_name}</h3>
                         {store.is_verified && (
-                          <span className="shrink-0 text-[9px] font-extrabold bg-primary-teal/10 text-primary-teal px-2 py-0.5 rounded-full">✓ TERVERIFIKASI</span>
+                          <span className="shrink-0 text-[9px] font-extrabold bg-primary-teal/10 text-primary-teal px-2 py-0.5 rounded-full">TERVERIFIKASI</span>
                         )}
                       </div>
                       {store.address && (

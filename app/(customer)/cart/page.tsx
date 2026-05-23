@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from 'react'
 import { useCartStore } from '@/stores/cart-store'
-import { ArrowLeft, ShoppingCart, Trash2, Store, Minus, Plus } from 'lucide-react'
+import { ArrowLeft, ShoppingCart, Trash2, Store, Minus, Plus, Package } from 'lucide-react'
 import Link from 'next/link'
 import Image from 'next/image'
 import { useRouter } from 'next/navigation'
@@ -72,7 +72,7 @@ export default function CartPage() {
                   {item.thumbnail_url ? (
                     <Image src={item.thumbnail_url} alt={item.title} fill sizes="80px" className="object-cover" />
                   ) : (
-                    <div className="w-full h-full flex items-center justify-center text-xl">🍱</div>
+                    <div className="w-full h-full flex items-center justify-center"><Package className="size-6 text-[#6A7686]" /></div>
                   )}
                 </div>
                 <div className="flex-1 min-w-0 flex flex-col justify-between py-0.5">
@@ -112,7 +112,7 @@ export default function CartPage() {
       </div>
 
       {/* Bottom CTA */}
-      <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-dark/5 p-4 z-20">
+      <div className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-md bg-white border-t border-dark/5 p-4 z-40 pb-safe shadow-[0_-4px_20px_-10px_rgba(0,0,0,0.1)]">
         <div className="flex items-center justify-between mb-3">
           <p className="text-sm text-dark/60 font-semibold">Total Pembayaran</p>
           <p className="text-xl font-extrabold text-primary-orange font-poppins">

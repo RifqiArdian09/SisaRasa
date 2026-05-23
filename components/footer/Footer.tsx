@@ -15,7 +15,6 @@ const footerLinks = {
   Navigasi: [
     { label: 'Beranda', href: '/' },
     { label: 'Jelajahi Makanan', href: '/foods' },
-    { label: 'Peta Toko', href: '/map' },
     { label: 'Jadi Mitra', href: '/register?role=store' },
   ],
   Informasi: [

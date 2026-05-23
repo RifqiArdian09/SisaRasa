@@ -32,9 +32,12 @@ export default function CreateProductPage() {
   const defaultExpiredDate = new Date()
   defaultExpiredDate.setHours(defaultExpiredDate.getHours() + 12)
   
-  const [expiredDate, setExpiredDate] = useState(defaultExpiredDate.toISOString().split('T')[0])
+  const pad = (n: number) => String(n).padStart(2, '0')
+  const [expiredDate, setExpiredDate] = useState(
+    `${defaultExpiredDate.getFullYear()}-${pad(defaultExpiredDate.getMonth() + 1)}-${pad(defaultExpiredDate.getDate())}`
+  )
   const [expiredTime, setExpiredTime] = useState(
-    defaultExpiredDate.toTimeString().split(' ')[0].substring(0, 5)
+    `${pad(defaultExpiredDate.getHours())}:${pad(defaultExpiredDate.getMinutes())}`
   )
 
   // Images state
