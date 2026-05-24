@@ -67,12 +67,14 @@ export async function POST(request: Request) {
     const title = `🍽️ Menu Baru dari ${store.store_name}!`
     const body = `${product.title} sekarang tersedia dengan diskon spesial mulai Rp ${Number(product.discount_price).toLocaleString('id-ID')}!`
 
-    // Save notifications to database
+    // Save notifications to database (include product_id for deep-link)
     const notificationInserts = customerIds.map((customerId: string) => ({
       user_id: customerId,
       title,
       body,
       type: 'new_product',
+      product_id,
+      store_id: store.id,
     }))
 
     await supabase.from('notifications').insert(notificationInserts)
@@ -86,7 +88,12 @@ export async function POST(request: Request) {
         tokens: fcmTokens,
         title,
         body,
-        data: { type: 'new_product', product_id, store_id: store.id },
+        data: {
+          type: 'new_product',
+          product_id,
+          store_id: store.id,
+          url: `/foods/${product_id}`,
+        },
       })
       successCount = result.successCount
       failureCount = result.failureCount

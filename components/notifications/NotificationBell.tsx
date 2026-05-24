@@ -1,9 +1,9 @@
 'use client';
 
 import { useEffect, useState, useRef, useCallback } from 'react';
+import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
-import { Bell, X, CheckCheck, ExternalLink } from 'lucide-react';
-import Link from 'next/link';
+import { Bell, X, CheckCheck } from 'lucide-react';
 
 interface Notification {
   id: string;
@@ -13,221 +13,229 @@ interface Notification {
   type: string;
   is_read: boolean;
   created_at: string;
+  product_id?: string | null;
+  store_id?: string | null;
+}
+
+function getNotificationLink(notif: Notification): string {
+  if (notif.product_id) return `/foods/${notif.product_id}`;
+  if (notif.store_id)   return `/stores/${notif.store_id}`;
+  switch (notif.type) {
+    case 'new_product':   return '/foods';
+    case 'order_status':  return '/orders';
+    case 'review':        return '/store/reviews';
+    default:              return '#';
+  }
+}
+
+function formatTime(dateStr: string): string {
+  const date    = new Date(dateStr);
+  const diffMs  = Date.now() - date.getTime();
+  const mins    = Math.floor(diffMs / 60_000);
+  const hours   = Math.floor(diffMs / 3_600_000);
+  const days    = Math.floor(diffMs / 86_400_000);
+  if (mins  < 1)  return 'Baru saja';
+  if (mins  < 60) return `${mins} menit lalu`;
+  if (hours < 24) return `${hours} jam lalu`;
+  if (days  < 7)  return `${days} hari lalu`;
+  return date.toLocaleDateString('id-ID');
+}
+
+function typeIcon(type: string): string {
+  switch (type) {
+    case 'new_product':  return '🍽️';
+    case 'order_status': return '📦';
+    case 'review':       return '⭐';
+    case 'favorite_store': return '❤️';
+    default:             return '🔔';
+  }
 }
 
 export default function NotificationBell() {
-  const [notifications, setNotifications] = useState<Notification[]>([]);
-  const [unreadCount, setUnreadCount] = useState(0);
-  const [isOpen, setIsOpen] = useState(false);
-  const [loading, setLoading] = useState(true);
-  const dropdownRef = useRef<HTMLDivElement>(null);
-  const supabase = createClient();
+  const router            = useRouter();
+  const supabase          = createClient();
+  const dropdownRef       = useRef<HTMLDivElement>(null);
+  const [userId, setUserId]         = useState<string | null>(null);
+  const [notifications, setNotifs]  = useState<Notification[]>([]);
+  const [unread, setUnread]         = useState(0);
+  const [isOpen, setIsOpen]         = useState(false);
+  const [loading, setLoading]       = useState(true);
 
-  // Close dropdown when clicking outside
+  // ── Close on outside click ──────────────────────────────────────────────────
   useEffect(() => {
-    function handleClickOutside(event: MouseEvent) {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+    const handler = (e: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
         setIsOpen(false);
       }
-    }
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
   }, []);
 
-  // Fetch notifications
-  const fetchNotifications = useCallback(async () => {
+  // ── Fetch notifications ─────────────────────────────────────────────────────
+  const fetchNotifs = useCallback(async (uid: string) => {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
-
       const { data } = await supabase
         .from('notifications')
         .select('*')
-        .eq('user_id', user.id)
+        .eq('user_id', uid)
         .order('created_at', { ascending: false })
-        .limit(20);
+        .limit(30);
 
       if (data) {
-        setNotifications(data);
-        setUnreadCount(data.filter((n: Notification) => !n.is_read).length);
+        setNotifs(data);
+        setUnread(data.filter((n: Notification) => !n.is_read).length);
       }
     } catch (err) {
-      console.error('[NotificationBell] Failed to fetch:', err);
+      console.error('[NotificationBell] fetch failed:', err);
     } finally {
       setLoading(false);
     }
   }, [supabase]);
 
+  // ── Init user + subscribe realtime ─────────────────────────────────────────
   useEffect(() => {
-    fetchNotifications();
+    let channel: ReturnType<typeof supabase.channel> | null = null;
 
-    // Subscribe to new notifications in realtime
-    const channel = supabase
-      .channel('notifications-realtime')
-      .on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'notifications',
-          filter: `user_id=eq.${supabase.auth.getUser().then(({ data }) => data.user?.id)}`,
-        },
-        (payload) => {
-          const newNotif = payload.new as Notification;
-          setNotifications((prev) => [newNotif, ...prev]);
-          setUnreadCount((prev) => prev + 1);
-        }
-      )
-      .subscribe();
+    const init = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
 
-    return () => {
-      supabase.removeChannel(channel);
+      setUserId(user.id);
+      await fetchNotifs(user.id);
+
+      // Realtime: listen for INSERT on this user's notifications
+      channel = supabase
+        .channel(`notifs:${user.id}`)
+        .on(
+          'postgres_changes',
+          {
+            event: 'INSERT',
+            schema: 'public',
+            table: 'notifications',
+            filter: `user_id=eq.${user.id}`,
+          },
+          (payload) => {
+            const n = payload.new as Notification;
+            setNotifs((prev) => [n, ...prev]);
+            setUnread((prev) => prev + 1);
+          }
+        )
+        .subscribe();
     };
-  }, [supabase, fetchNotifications]);
 
-  // Mark a single notification as read
-  const markAsRead = async (id: string) => {
-    await supabase.from('notifications').update({ is_read: true }).eq('id', id);
-    setNotifications((prev) =>
-      prev.map((n) => (n.id === id ? { ...n, is_read: true } : n))
-    );
-    setUnreadCount((prev) => Math.max(0, prev - 1));
-  };
+    init();
+    return () => {
+      if (channel) supabase.removeChannel(channel);
+    };
+  }, [supabase, fetchNotifs]);
 
-  // Mark all as read
-  const markAllAsRead = async () => {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
-
-    await supabase
-      .from('notifications')
-      .update({ is_read: true })
-      .eq('user_id', user.id)
-      .is('is_read', false);
-
-    setNotifications((prev) => prev.map((n) => ({ ...n, is_read: true })));
-    setUnreadCount(0);
-  };
-
-  const getNotificationLink = (notif: Notification): string => {
-    switch (notif.type) {
-      case 'new_product':
-        return '/foods'; // could extract product_id from body
-      case 'favorite_store':
-        return '/stores'; // could extract store_id
-      case 'order_status':
-        return '/orders';
-      default:
-        return '#';
+  // ── Mark single as read & navigate ────────────────────────────────────────
+  const handleClick = async (notif: Notification) => {
+    if (!notif.is_read) {
+      await supabase.from('notifications').update({ is_read: true }).eq('id', notif.id);
+      setNotifs((prev) => prev.map((n) => n.id === notif.id ? { ...n, is_read: true } : n));
+      setUnread((prev) => Math.max(0, prev - 1));
+    }
+    const link = getNotificationLink(notif);
+    if (link !== '#') {
+      setIsOpen(false);
+      router.push(link);
     }
   };
 
-  const formatTime = (dateStr: string) => {
-    const date = new Date(dateStr);
-    const now = new Date();
-    const diffMs = now.getTime() - date.getTime();
-    const diffMins = Math.floor(diffMs / 60000);
-    const diffHours = Math.floor(diffMs / 3600000);
-    const diffDays = Math.floor(diffMs / 86400000);
-
-    if (diffMins < 1) return 'Baru saja';
-    if (diffMins < 60) return `${diffMins} menit lalu`;
-    if (diffHours < 24) return `${diffHours} jam lalu`;
-    if (diffDays < 7) return `${diffDays} hari lalu`;
-    return date.toLocaleDateString('id-ID');
+  // ── Mark all as read ───────────────────────────────────────────────────────
+  const markAllRead = async () => {
+    if (!userId) return;
+    await supabase.from('notifications').update({ is_read: true }).eq('user_id', userId).is('is_read', false);
+    setNotifs((prev) => prev.map((n) => ({ ...n, is_read: true })));
+    setUnread(0);
   };
+
+  if (!userId) return null;
 
   return (
     <div ref={dropdownRef} className="relative">
-      {/* Bell Button */}
+      {/* ── Bell button ── */}
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="relative p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+        className="relative p-2 rounded-full hover:bg-primary-teal/10 transition-colors"
         aria-label="Notifikasi"
       >
-        <Bell className="w-5 h-5 text-gray-600 dark:text-gray-300" />
-        {unreadCount > 0 && (
-          <span className="absolute -top-0.5 -right-0.5 inline-flex items-center justify-center w-5 h-5 text-xs font-bold text-white bg-red-500 rounded-full">
-            {unreadCount > 99 ? '99+' : unreadCount}
+        <Bell className="w-5 h-5 text-dark/70" />
+        {unread > 0 && (
+          <span className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] flex items-center justify-center text-[10px] font-bold text-white bg-primary-orange rounded-full px-0.5">
+            {unread > 99 ? '99+' : unread}
           </span>
         )}
       </button>
 
-      {/* Dropdown */}
+      {/* ── Dropdown ── */}
       {isOpen && (
-        <div className="absolute right-0 mt-2 w-80 sm:w-96 bg-white dark:bg-gray-900 rounded-2xl shadow-xl border border-gray-200 dark:border-gray-700 z-50 max-h-[70vh] flex flex-col">
+        <div className="absolute right-0 mt-2 w-80 sm:w-96 bg-white rounded-2xl shadow-xl border border-slate-100 z-50 max-h-[70vh] flex flex-col">
           {/* Header */}
-          <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700">
-            <h3 className="font-semibold text-gray-900 dark:text-white">Notifikasi</h3>
-            <div className="flex gap-2">
-              {unreadCount > 0 && (
+          <div className="flex items-center justify-between px-4 py-3 border-b border-slate-100">
+            <h3 className="font-bold text-sm text-dark font-poppins">Notifikasi</h3>
+            <div className="flex items-center gap-2">
+              {unread > 0 && (
                 <button
-                  onClick={markAllAsRead}
-                  className="text-xs text-primary-teal hover:text-light-teal transition-colors flex items-center gap-1"
+                  onClick={markAllRead}
+                  className="text-[11px] text-primary-teal hover:text-light-teal flex items-center gap-1 font-semibold"
                 >
                   <CheckCheck className="w-3.5 h-3.5" />
                   Tandai dibaca
                 </button>
               )}
-              <button
-                onClick={() => setIsOpen(false)}
-                className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
-              >
+              <button onClick={() => setIsOpen(false)} className="text-dark/40 hover:text-dark/70">
                 <X className="w-4 h-4" />
               </button>
             </div>
           </div>
 
-          {/* Notification List */}
+          {/* List */}
           <div className="overflow-y-auto flex-1">
             {loading ? (
-              <div className="p-6 text-center text-gray-400">
-                <div className="animate-pulse space-y-3">
-                  {[1, 2, 3].map((i) => (
-                    <div key={i} className="h-16 bg-gray-100 dark:bg-gray-800 rounded-xl" />
-                  ))}
-                </div>
+              <div className="p-4 space-y-3">
+                {[1, 2, 3].map((i) => (
+                  <div key={i} className="h-16 bg-slate-50 rounded-xl animate-pulse" />
+                ))}
               </div>
             ) : notifications.length === 0 ? (
-              <div className="p-6 text-center text-gray-400">
-                <Bell className="w-10 h-10 mx-auto mb-2 opacity-50" />
-                <p className="text-sm">Belum ada notifikasi</p>
+              <div className="py-12 flex flex-col items-center text-dark/40">
+                <Bell className="w-10 h-10 mb-3 opacity-30" />
+                <p className="text-sm font-medium">Belum ada notifikasi</p>
               </div>
             ) : (
               notifications.map((notif) => (
-                <div
+                <button
                   key={notif.id}
-                  className={`p-4 border-b border-gray-100 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors ${
-                    !notif.is_read ? 'bg-primary-teal/5 dark:bg-primary-teal/10' : ''
+                  onClick={() => handleClick(notif)}
+                  className={`w-full text-left px-4 py-3 border-b border-slate-50 hover:bg-slate-50 transition-colors flex items-start gap-3 ${
+                    !notif.is_read ? 'bg-primary-teal/5' : ''
                   }`}
-                  onClick={() => {
-                    if (!notif.is_read) markAsRead(notif.id);
-                  }}
                 >
-                  <div className="flex items-start gap-3">
-                    <div className="flex-1 min-w-0">
-                      <p className={`text-sm ${!notif.is_read ? 'font-semibold' : 'font-medium'} text-gray-900 dark:text-white`}>
-                        {notif.title}
-                      </p>
-                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5 line-clamp-2">
-                        {notif.body}
-                      </p>
-                      <div className="flex items-center gap-2 mt-1.5">
-                        <span className="text-[10px] text-gray-400">{formatTime(notif.created_at)}</span>
-                        <Link
-                          href={getNotificationLink(notif)}
-                          className="text-[10px] text-primary-teal hover:text-light-teal flex items-center gap-0.5"
-                          onClick={(e) => e.stopPropagation()}
-                        >
-                          Lihat <ExternalLink className="w-2.5 h-2.5" />
-                        </Link>
-                      </div>
-                    </div>
-                    {!notif.is_read && (
-                      <span className="w-2 h-2 rounded-full bg-primary-orange flex-shrink-0 mt-1" />
-                    )}
+                  {/* Type icon */}
+                  <span className="text-xl leading-none mt-0.5 shrink-0">
+                    {typeIcon(notif.type)}
+                  </span>
+
+                  <div className="flex-1 min-w-0">
+                    <p className={`text-[13px] leading-snug text-dark ${!notif.is_read ? 'font-semibold' : 'font-medium'}`}>
+                      {notif.title}
+                    </p>
+                    <p className="text-xs text-dark/55 mt-0.5 line-clamp-2 leading-relaxed">
+                      {notif.body}
+                    </p>
+                    <span className="text-[10px] text-dark/35 mt-1 block">
+                      {formatTime(notif.created_at)}
+                    </span>
                   </div>
-                </div>
+
+                  {/* Unread dot */}
+                  {!notif.is_read && (
+                    <span className="w-2 h-2 rounded-full bg-primary-orange flex-shrink-0 mt-1.5" />
+                  )}
+                </button>
               ))
             )}
           </div>

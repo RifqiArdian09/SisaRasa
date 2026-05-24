@@ -109,11 +109,23 @@ export default function StoreDetailPage() {
       await supabase.from('favorites').delete().eq('id', favId)
       setIsFav(false); setFavId(null)
       toast.success('Toko dihapus dari favorit.')
+      // Notify store owner (fire-and-forget)
+      fetch('/api/notifications/favorite-store', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ store_id: storeId, action: 'unfavorite' }),
+      }).catch(() => {})
     } else {
       const { data } = await supabase.from('favorites')
         .insert({ customer_id: userId, store_id: storeId }).select().single()
       setIsFav(true); setFavId(data?.id || null)
-      toast.success('Toko ditambahkan ke favorit!')
+      toast.success('Toko ditambahkan ke favorit! Kamu akan dapat notifikasi menu baru.')
+      // Notify store owner (fire-and-forget)
+      fetch('/api/notifications/favorite-store', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ store_id: storeId, action: 'favorite' }),
+      }).catch(() => {})
     }
   }
 
