@@ -43,6 +43,7 @@ export async function updateSession(request: NextRequest) {
     '/profile',
     '/store',
     '/admin',
+    '/foods',
   ]
 
   const isProtected = protectedPrefixes.some((prefix) =>
@@ -53,6 +54,7 @@ export async function updateSession(request: NextRequest) {
   if (!user && isProtected) {
     const redirectUrl = request.nextUrl.clone()
     redirectUrl.pathname = '/login'
+    redirectUrl.searchParams.set('redirect', request.nextUrl.pathname)
     return NextResponse.redirect(redirectUrl)
   }
 

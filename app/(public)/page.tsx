@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
+import { createClient } from '@/lib/supabase/client'
 import { 
   Leaf, 
   ChevronDown, 
@@ -21,7 +22,17 @@ import {
   Home,
   Info,
   LayoutList,
-  HelpCircle
+  HelpCircle,
+  Coffee,
+  UtensilsCrossed,
+  Cake,
+  Apple,
+  MapPin,
+  Heart,
+  TrendingDown,
+  Users,
+  AlertTriangle,
+  Star
 } from 'lucide-react'
 
 const InstagramIcon = () => (
@@ -105,24 +116,111 @@ function ScrollReveal({
   )
 }
 
-const problems = [
-  { icon: Trash2, title: 'Banyak makanan dari UMKM yang terbuang karena tidak habis terjual.', iconBg: 'bg-emerald-100 text-[#2E7D32]' },
-  { icon: Wallet, title: 'Kerugian besar bagi UMKM setiap harinya.', iconBg: 'bg-amber-100 text-amber-600' },
-  { icon: Globe, title: 'Food waste berkontribusi pada kerusakan lingkungan.', iconBg: 'bg-rose-100 text-rose-600' },
-]
+function AnimatedCounter({ 
+  value, 
+  duration = 2000, 
+  decimals = 0,
+  prefix = '',
+  suffix = ''
+}: { 
+  value: number
+  duration?: number
+  decimals?: number
+  prefix?: string
+  suffix?: string
+}) {
+  const [count, setCount] = useState(0)
+  const [hasAnimated, setHasAnimated] = useState(false)
+  const elementRef = useRef<HTMLSpanElement>(null)
+
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting && !hasAnimated) {
+          setHasAnimated(true)
+          observer.unobserve(entry.target)
+        }
+      },
+      { threshold: 0.1 }
+    )
+
+    const currentRef = elementRef.current
+    if (currentRef) {
+      observer.observe(currentRef)
+    }
+
+    return () => {
+      if (currentRef) {
+        observer.unobserve(currentRef)
+      }
+    }
+  }, [hasAnimated])
+
+  useEffect(() => {
+    if (!hasAnimated) return
+
+    let startTimestamp: number | null = null
+    const step = (timestamp: number) => {
+      if (!startTimestamp) startTimestamp = timestamp
+      const progress = Math.min((timestamp - startTimestamp) / duration, 1)
+      setCount(progress * value)
+      if (progress < 1) {
+        window.requestAnimationFrame(step)
+      }
+    };
+    window.requestAnimationFrame(step)
+  }, [hasAnimated, value, duration])
+
+  return (
+    <span ref={elementRef} className="tabular-nums">
+      {prefix}
+      {count.toFixed(decimals)}
+      {suffix}
+    </span>
+  )
+}
+
+function CountdownTimer({ hoursLeft }: { hoursLeft: number }) {
+  const [timeLeft, setTimeLeft] = useState(0)
+
+  useEffect(() => {
+    setTimeLeft(Math.floor(hoursLeft * 3600))
+  }, [hoursLeft])
+
+  useEffect(() => {
+    if (timeLeft <= 0) return
+    const timer = setInterval(() => {
+      setTimeLeft((prev) => (prev > 0 ? prev - 1 : 0))
+    }, 1000)
+    return () => clearInterval(timer)
+  }, [timeLeft])
+
+  const hrs = Math.floor(timeLeft / 3600)
+  const mins = Math.floor((timeLeft % 3600) / 60)
+  const secs = timeLeft % 60
+
+  return (
+    <span className="font-mono text-[11px] font-bold text-rose-600 bg-rose-50 px-2.5 py-1 rounded-full border border-rose-100 flex items-center gap-1.5 shrink-0">
+      <span className="w-1.5 h-1.5 bg-rose-500 rounded-full animate-ping" />
+      {hrs.toString().padStart(2, '0')}:{mins.toString().padStart(2, '0')}:{secs.toString().padStart(2, '0')}
+    </span>
+  )
+}
+
+
 
 const steps = [
   { icon: Store, num: '1', title: 'UMKM Upload Makanan', desc: 'UMKM upload makanan yang hampir habis masa jual.', iconBg: 'bg-amber-100 text-amber-600' },
   { icon: Smartphone, num: '2', title: 'Tampil di Aplikasi', desc: 'Makanan tampil di aplikasi untuk dilihat pembeli.', iconBg: 'bg-indigo-100 text-indigo-600' },
   { icon: ShoppingBag, num: '3', title: 'Pembeli Memesan', desc: 'Pembeli memesan makanan dengan harga lebih murah.', iconBg: 'bg-rose-100 text-rose-600' },
-  { icon: Bike, num: '4', title: 'Ambil / Delivery', desc: 'Ambil di tempat atau pilih delivery jika tersedia.', iconBg: 'bg-emerald-100 text-[#2E7D32]' },
+  { icon: Bike, num: '4', title: 'Ambil / Delivery', desc: 'Ambil di tempat atau pilih delivery jika tersedia.', iconBg: 'bg-emerald-100 text-primary-teal' },
 ]
 
 const benefits = [
   { icon: Wallet, label: 'Hemat Biaya', desc: 'Dapatkan makanan berkualitas dengan harga lebih terjangkau.', color: 'bg-amber-100 text-amber-600' },
   { icon: Leaf, label: 'Kurangi Food Waste', desc: 'Bantu mengurangi sampah makanan dan selamatkan bumi.', color: 'bg-emerald-100 text-emerald-600' },
   { icon: Store, label: 'Dukung UMKM', desc: 'Bantu UMKM meningkatkan pendapatan dan mengurangi kerugian.', color: 'bg-indigo-100 text-indigo-600' },
-  { icon: ShieldCheck, label: 'Makanan Tetap Layak', desc: 'Semua makanan masih layak konsumsi dan terjaga kualitasnya.', color: 'bg-emerald-100 text-[#2E7D32]' },
+  { icon: ShieldCheck, label: 'Makanan Tetap Layak', desc: 'Semua makanan masih layak konsumsi dan terjaga kualitasnya.', color: 'bg-emerald-100 text-primary-teal' },
 ]
 
 const faqs = [
@@ -137,11 +235,72 @@ const faqs = [
 const navItems = [
   { label: 'Beranda', icon: Home, href: '/' },
   { label: 'Tentang', icon: Info, href: '#tentang' },
+  { label: 'Keuntungan', icon: ShieldCheck, href: '#keuntungan' },
   { label: 'Cara Kerja', icon: LayoutList, href: '#cara-kerja' },
+  { label: 'Makanan', icon: ShoppingBag, href: '/foods' },
   { label: 'FAQ', icon: HelpCircle, href: '#faq' },
 ]
 
+const getCategoryDetails = (slug: string) => {
+  const s = slug.toLowerCase()
+  if (s.includes('roti') || s.includes('kue') || s.includes('bakery') || s.includes('roti-kue')) {
+    return { icon: Cake, color: 'bg-amber-50 text-amber-600 border-amber-100 hover:border-amber-300', desc: 'Roti, donat, cake & pastry fresh harian' }
+  }
+  if (s.includes('berat') || s.includes('nasi') || s.includes('lauk') || s.includes('makanan-berat') || s.includes('catering')) {
+    return { icon: UtensilsCrossed, color: 'bg-rose-50 text-rose-500 border-rose-100 hover:border-rose-300', desc: 'Nasi kotak, katering, lauk pauk & soto' }
+  }
+  if (s.includes('kopi') || s.includes('minum') || s.includes('kafe') || s.includes('kopi-minuman') || s.includes('coffee')) {
+    return { icon: Coffee, color: 'bg-primary-teal/5 text-primary-teal border-primary-teal/10 hover:border-primary-teal/30', desc: 'Es kopi, matcha latte, jus & teh susu' }
+  }
+  if (s.includes('buah') || s.includes('sayur') || s.includes('organik') || s.includes('buah-sayur') || s.includes('groceries')) {
+    return { icon: Apple, color: 'bg-emerald-50 text-emerald-600 border-emerald-100 hover:border-emerald-300', desc: 'Buah potong, sayuran segar, salad & organik' }
+  }
+  return { icon: ShoppingBag, color: 'bg-indigo-50 text-indigo-600 border-indigo-100 hover:border-indigo-300', desc: 'Makanan berkualitas hemat dari mitra UMKM' }
+}
+
 export default function LandingPage() {
+  const supabase = createClient()
+  const [categories, setCategories] = useState<any[]>([])
+  const [products, setProducts] = useState<any[]>([])
+  const [loadingCategories, setLoadingCategories] = useState(true)
+  const [loadingProducts, setLoadingProducts] = useState(true)
+
+  useEffect(() => {
+    async function loadData() {
+      try {
+        const { data: catData, error: catError } = await supabase
+          .from('categories')
+          .select('id, name, slug')
+          .order('name')
+          .limit(4)
+        
+        if (!catError && catData) {
+          setCategories(catData)
+        }
+
+        const { data: prodData, error: prodError } = await supabase
+          .from('products')
+          .select('id, title, original_price, discount_price, stock, expired_at, thumbnail_url, is_active, stores(id, store_name, logo_url), categories(name, slug)')
+          .eq('is_active', true)
+          .gt('stock', 0)
+          .gt('expired_at', new Date().toISOString())
+          .order('created_at', { ascending: false })
+          .limit(3)
+
+        if (!prodError && prodData) {
+          setProducts(prodData)
+        }
+      } catch (error) {
+        console.error('Error loading landing page data:', error)
+      } finally {
+        setLoadingCategories(false)
+        setLoadingProducts(false)
+      }
+    }
+
+    loadData()
+  }, [supabase])
+
   const [openFaq, setOpenFaq] = useState<number | null>(null)
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
 
@@ -173,7 +332,7 @@ export default function LandingPage() {
               <div className="relative w-9 h-9 flex items-center justify-center transition-transform group-hover:scale-105">
                 <Image src="/images/logo.png" alt="SisaRasa Logo" width={36} height={36} className="object-contain" />
               </div>
-              <span className="font-bold text-2xl text-[#2E7D32] font-poppins tracking-tight">SisaRasa</span>
+              <span className="font-bold text-2xl text-primary-teal font-poppins tracking-tight">SisaRasa</span>
             </Link>
 
             {/* Desktop Nav */}
@@ -184,7 +343,7 @@ export default function LandingPage() {
                   <button
                     key={item.label}
                     onClick={() => handleNavClick(item.href)}
-                    className="flex items-center gap-2 px-4 py-2 rounded-full text-sm font-semibold text-[#1A1A1A]/70 hover:text-[#2E7D32] hover:bg-[#2E7D32]/5 transition-all duration-200"
+                    className="flex items-center gap-2 px-4 py-2 rounded-full text-sm font-semibold text-[#1A1A1A]/70 hover:text-primary-teal hover:bg-primary-teal/5 transition-all duration-200"
                   >
                     <Icon className="w-4 h-4" />
                     {item.label}
@@ -197,7 +356,7 @@ export default function LandingPage() {
               <Link href="/login" className="px-6 py-2.5 rounded-full border border-slate-200 text-[#1A1A1A]/90 text-sm font-bold hover:bg-slate-50 transition-all">
                 Masuk
               </Link>
-              <Link href="/register" className="px-6 py-2.5 rounded-full bg-[#2E7D32] hover:bg-[#236026] text-white text-sm font-bold shadow-sm hover:shadow transition-all">
+              <Link href="/register" className="px-6 py-2.5 rounded-full bg-primary-teal hover:bg-[#0b5c56] text-white text-sm font-bold shadow-sm hover:shadow transition-all">
                 Daftar
               </Link>
             </div>
@@ -205,7 +364,7 @@ export default function LandingPage() {
             {/* Mobile Hamburger */}
             <button
               onClick={() => setMobileMenuOpen(true)}
-              className="md:hidden p-2 -mr-2 text-[#2E7D32] hover:bg-[#2E7D32]/5 rounded-lg transition-colors"
+              className="md:hidden p-2 -mr-2 text-primary-teal hover:bg-primary-teal/5 rounded-lg transition-colors"
               aria-label="Buka menu"
             >
               <Menu size={24} />
@@ -223,10 +382,10 @@ export default function LandingPage() {
           />
           <div className="absolute right-0 top-0 h-full w-[290px] max-w-[80vw] bg-white shadow-2xl animate-slide-in-right flex flex-col">
             <div className="flex items-center justify-between px-5 h-16 border-b border-slate-100">
-              <span className="font-bold text-lg text-[#2E7D32] font-poppins">Menu</span>
+              <span className="font-bold text-lg text-primary-teal font-poppins">Menu</span>
               <button
                 onClick={() => setMobileMenuOpen(false)}
-                className="p-2 text-[#1A1A1A]/60 hover:text-[#2E7D32] hover:bg-slate-100 rounded-lg transition-all"
+                className="p-2 text-[#1A1A1A]/60 hover:text-primary-teal hover:bg-slate-100 rounded-lg transition-all"
                 aria-label="Tutup menu"
               >
                 <X size={22} />
@@ -240,7 +399,7 @@ export default function LandingPage() {
                   <button
                     key={item.label}
                     onClick={() => handleNavClick(item.href)}
-                    className="flex items-center gap-3 w-full px-4 py-3.5 rounded-xl text-sm font-semibold text-[#1A1A1A]/80 hover:text-[#2E7D32] hover:bg-[#2E7D32]/5 transition-all text-left"
+                    className="flex items-center gap-3 w-full px-4 py-3.5 rounded-xl text-sm font-semibold text-[#1A1A1A]/80 hover:text-primary-teal hover:bg-primary-teal/5 transition-all text-left"
                   >
                     <Icon className="w-5 h-5 shrink-0" />
                     {item.label}
@@ -260,7 +419,7 @@ export default function LandingPage() {
               <Link
                 href="/register"
                 onClick={() => setMobileMenuOpen(false)}
-                className="w-full py-3 rounded-full bg-[#2E7D32] hover:bg-[#236026] text-center text-sm font-bold text-white shadow-sm transition-all"
+                className="w-full py-3 rounded-full bg-primary-teal hover:bg-[#0b5c56] text-center text-sm font-bold text-white shadow-sm transition-all"
               >
                 Daftar
               </Link>
@@ -301,9 +460,9 @@ export default function LandingPage() {
             
             <div className="lg:col-span-7 flex flex-col justify-center">
               <ScrollReveal direction="left" delay={0}>
-                <div className="inline-flex items-center gap-2 bg-[#2E7D32]/10 rounded-full px-4.5 py-2 mb-6 w-max backdrop-blur-sm">
-                  <Leaf className="w-4 h-4 text-[#2E7D32]" />
-                  <span className="text-[#2E7D32] text-xs font-bold font-poppins">#SelamatkanMakanan</span>
+                <div className="inline-flex items-center gap-2 bg-primary-teal/10 rounded-full px-4.5 py-2 mb-6 w-max backdrop-blur-sm">
+                  <Leaf className="w-4 h-4 text-primary-teal" />
+                  <span className="text-primary-teal text-xs font-bold font-poppins">#SelamatkanMakanan</span>
                 </div>
               </ScrollReveal>
               
@@ -311,7 +470,7 @@ export default function LandingPage() {
                 <h1 className="text-4xl sm:text-5xl lg:text-[56px] lg:leading-[1.15] font-extrabold tracking-tight text-[#1A1A1A] font-poppins mb-6">
                   Selamatkan Makanan,<br />
                   Nikmati Harga<br />
-                  <span className="text-[#2E7D32]">Lebih Hemat.</span>
+                  <span className="text-primary-teal">Lebih Hemat.</span>
                 </h1>
               </ScrollReveal>
               
@@ -323,12 +482,12 @@ export default function LandingPage() {
               
               <ScrollReveal direction="left" delay={300}>
                 <div className="flex flex-col sm:flex-row gap-4 mb-10">
-                  <Link href="/register" className="inline-flex items-center justify-center gap-2 px-8 py-4 rounded-full bg-[#2E7D32] text-white font-bold text-sm shadow-md hover:bg-[#236026] hover:-translate-y-0.5 transition-all duration-200">
+                  <Link href="/register" className="inline-flex items-center justify-center gap-2 px-8 py-4 rounded-full bg-primary-teal text-white font-bold text-sm shadow-md hover:bg-[#0b5c56] hover:-translate-y-0.5 transition-all duration-200">
                     Mulai Sekarang
                   </Link>
                   <Link href="/foods" className="inline-flex items-center justify-center gap-2 px-8 py-4 rounded-full border border-slate-200 bg-white text-[#1A1A1A]/80 font-bold text-sm hover:bg-slate-50 hover:-translate-y-0.5 transition-all duration-200">
                     Lihat Makanan
-                    <ArrowRight size={16} className="text-[#2E7D32]" />
+                    <ArrowRight size={16} className="text-primary-teal" />
                   </Link>
                 </div>
               </ScrollReveal>
@@ -354,43 +513,157 @@ export default function LandingPage() {
       </section>
 
       {/* ===== MASALAH FOOD WASTE ===== */}
-      <section className="py-16 sm:py-20 lg:py-24 bg-[#FFF6E9]/30">
-        <div className="mx-auto max-w-7xl px-6 lg:px-12">
+      <section className="py-20 sm:py-24 bg-cream-bg/40 border-y border-primary-orange/10 relative overflow-hidden">
+        {/* Background glow effects */}
+        <div className="absolute top-1/4 left-0 w-72 h-72 bg-primary-orange/5 rounded-full blur-3xl pointer-events-none" />
+        <div className="absolute bottom-1/4 right-0 w-80 h-80 bg-primary-teal/5 rounded-full blur-3xl pointer-events-none" />
+
+        <div className="mx-auto max-w-7xl px-6 lg:px-12 relative z-10">
+          
+          {/* Header */}
           <ScrollReveal direction="up" delay={0}>
-            <div className="text-center max-w-2xl mx-auto mb-12">
-              <h2 className="text-2xl sm:text-3xl lg:text-4xl font-extrabold text-[#1A1A1A] font-poppins tracking-tight mb-3">
+            <div className="text-center max-w-3xl mx-auto mb-16">
+              <div className="inline-flex items-center gap-2 bg-primary-orange/10 border border-primary-orange/20 rounded-full px-5 py-1.5 mb-4">
+                <span className="text-primary-orange text-xs font-bold font-poppins tracking-wider uppercase">Fakta & Dampak</span>
+              </div>
+              <h2 className="text-3xl sm:text-4xl lg:text-[40px] font-extrabold text-dark font-poppins tracking-tight mb-4">
                 Masalah Food Waste di Indonesia
               </h2>
-              <div className="h-1 w-12 bg-[#2E7D32] mx-auto rounded-full" />
+              <p className="text-dark/70 text-base max-w-2xl mx-auto leading-relaxed">
+                Di balik setiap piring makanan yang terbuang, terdapat kerugian ekonomi yang besar bagi UMKM, ancaman lingkungan serius, serta ironi sosial yang nyata.
+              </p>
+              <div className="h-1 w-16 bg-primary-orange mx-auto rounded-full mt-6" />
             </div>
           </ScrollReveal>
-          
-          <div className="grid md:grid-cols-3 gap-8 max-w-5xl mx-auto">
-            {problems.map((p, index) => {
-              const Icon = p.icon
-              return (
-                <ScrollReveal key={index} delay={index * 150} className="flex items-center gap-4">
-                  <div className={`w-12 h-12 rounded-full ${p.iconBg} flex items-center justify-center shrink-0`}>
-                    <Icon className="w-5.5 h-5.5" />
+
+          {/* Grid Content */}
+          <div className="grid lg:grid-cols-12 gap-8 lg:gap-12 items-stretch mb-12">
+            
+            {/* Left: Statistics Dashboard */}
+            <div className="lg:col-span-5 flex flex-col justify-between">
+              <ScrollReveal direction="left" delay={100} className="h-full flex flex-col justify-between bg-white/60 backdrop-blur-md border border-white p-8 rounded-2xl shadow-sm hover:shadow-md transition-all duration-300">
+                <div>
+                  <h3 className="text-lg font-bold text-dark font-poppins mb-2 flex items-center gap-2">
+                    <span className="w-1.5 h-6 bg-primary-orange rounded-full" />
+                    Data Food Waste Indonesia
+                  </h3>
+                  <p className="text-xs text-dark/60 mb-6">Berdasarkan riset dan statistik timbulan sampah nasional.</p>
+                </div>
+
+                <div className="space-y-6">
+                  {/* Stat 1 */}
+                  <div className="p-4 rounded-xl bg-primary-orange/5 border border-primary-orange/10 flex items-center gap-4">
+                    <div className="text-3xl sm:text-4xl font-extrabold text-primary-orange font-poppins shrink-0 tracking-tight">
+                      <AnimatedCounter value={14.73} decimals={2} suffix="M" />
+                    </div>
+                    <div>
+                      <h4 className="text-xs font-bold text-dark/80 font-poppins">Juta Ton / Tahun</h4>
+                      <p className="text-xs text-dark/60 leading-normal">Indonesia menghasilkan sekitar 14,73 juta ton sampah makanan per tahun.</p>
+                    </div>
                   </div>
-                  <p className="text-sm font-bold text-[#1A1A1A] leading-snug">{p.title}</p>
-                </ScrollReveal>
-              )
-            })}
+
+                  {/* Stat 2 */}
+                  <div className="p-4 rounded-xl bg-primary-teal/5 border border-primary-teal/10 flex items-center gap-4">
+                    <div className="text-3xl sm:text-4xl font-extrabold text-primary-teal font-poppins shrink-0 tracking-tight">
+                      <AnimatedCounter value={40} prefix=">" suffix="%" />
+                    </div>
+                    <div>
+                      <h4 className="text-xs font-bold text-dark/80 font-poppins">Sampah Nasional</h4>
+                      <p className="text-xs text-dark/60 leading-normal">Lebih dari 40% dari total sampah nasional merupakan sampah makanan.</p>
+                    </div>
+                  </div>
+
+                  {/* Stat 3 */}
+                  <div className="p-4 rounded-xl bg-rose-50 border border-rose-100 flex items-center gap-4">
+                    <div className="text-3xl sm:text-4xl font-extrabold text-[#E11D48] font-poppins shrink-0 tracking-tight">
+                      <AnimatedCounter value={10} suffix="%" />
+                    </div>
+                    <div>
+                      <h4 className="text-xs font-bold text-dark/80 font-poppins">Emisi Global</h4>
+                      <p className="text-xs text-dark/60 leading-normal">Food waste menyumbang sekitar 10% dari emisi gas rumah kaca secara global.</p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="mt-6 pt-4 border-t border-slate-100 text-[10px] text-dark/40 font-medium text-center">
+                  Sumber: SIPSN Kementerian Lingkungan Hidup dan Kehutanan (KLHK)
+                </div>
+              </ScrollReveal>
+            </div>
+
+            {/* Right: Pain Points */}
+            <div className="lg:col-span-7 grid sm:grid-cols-2 gap-6">
+              
+              {/* Card 1: Banyak Makanan Terbuang */}
+              <ScrollReveal direction="right" delay={150} className="bg-white/80 border border-slate-100 p-6 rounded-2xl shadow-sm hover:shadow-md hover:border-primary-orange/20 transition-all duration-300 flex flex-col justify-between">
+                <div>
+                  <div className="w-11 h-11 rounded-xl bg-primary-orange/10 flex items-center justify-center text-primary-orange mb-5">
+                    <Trash2 className="w-5.5 h-5.5" />
+                  </div>
+                  <h3 className="font-bold text-base text-dark mb-2 font-poppins">Banyak Makanan Terbuang</h3>
+                  <p className="text-xs text-dark/65 leading-relaxed">
+                    Setiap hari, restoran, cafe, bakery, hotel, dan UMKM membuang makanan yang sebenarnya masih layak konsumsi karena tidak habis terjual.
+                  </p>
+                </div>
+              </ScrollReveal>
+
+              {/* Card 2: Kerugian Bagi UMKM */}
+              <ScrollReveal direction="right" delay={200} className="bg-white/80 border border-slate-100 p-6 rounded-2xl shadow-sm hover:shadow-md hover:border-primary-teal/20 transition-all duration-300 flex flex-col justify-between">
+                <div>
+                  <div className="w-11 h-11 rounded-xl bg-primary-teal/10 flex items-center justify-center text-primary-teal mb-5">
+                    <Wallet className="w-5.5 h-5.5" />
+                  </div>
+                  <h3 className="font-bold text-base text-dark mb-2 font-poppins">Kerugian Bagi UMKM</h3>
+                  <p className="text-xs text-dark/65 leading-relaxed">
+                    Makanan yang terbuang menyebabkan kerugian besar bagi UMKM karena biaya bahan baku, produksi, dan operasional menjadi sia-sia.
+                  </p>
+                </div>
+              </ScrollReveal>
+
+              {/* Card 3: Dampak Lingkungan */}
+              <ScrollReveal direction="right" delay={250} className="bg-white/80 border border-slate-100 p-6 rounded-2xl shadow-sm hover:shadow-md hover:border-primary-teal/20 transition-all duration-300 flex flex-col justify-between">
+                <div>
+                  <div className="w-11 h-11 rounded-xl bg-emerald-100 text-emerald-600 flex items-center justify-center mb-5">
+                    <Globe className="w-5.5 h-5.5" />
+                  </div>
+                  <h3 className="font-bold text-base text-dark mb-2 font-poppins">Dampak Lingkungan</h3>
+                  <p className="text-xs text-dark/65 leading-relaxed">
+                    Sampah makanan menghasilkan gas metana yang memperparah pemanasan global dan meningkatkan pencemaran lingkungan.
+                  </p>
+                </div>
+              </ScrollReveal>
+
+              {/* Card 4: Ironi Sosial */}
+              <ScrollReveal direction="right" delay={300} className="bg-white/80 border border-slate-100 p-6 rounded-2xl shadow-sm hover:shadow-md hover:border-rose-500/20 transition-all duration-300 flex flex-col justify-between">
+                <div>
+                  <div className="w-11 h-11 rounded-xl bg-rose-50 text-rose-500 flex items-center justify-center mb-5">
+                    <HelpCircle className="w-5.5 h-5.5" />
+                  </div>
+                  <h3 className="font-bold text-base text-dark mb-2 font-poppins">Ironi Sosial</h3>
+                  <p className="text-xs text-dark/65 leading-relaxed">
+                    Di saat jutaan makanan terbuang setiap hari, masih banyak masyarakat yang kesulitan mendapatkan makanan layak konsumsi.
+                  </p>
+                </div>
+              </ScrollReveal>
+
+            </div>
           </div>
+
+          
+
         </div>
       </section>
 
-      {/* ===== SOLUSI ===== */}
+
       <section id="tentang" className="py-16 sm:py-20 lg:py-24 bg-[#EBF7F5]">
         <div className="mx-auto max-w-7xl px-6 lg:px-12">
           <div className="grid lg:grid-cols-12 gap-12 lg:gap-16 items-center">
             
             <div className="lg:col-span-6 flex flex-col justify-center">
               <ScrollReveal direction="left" delay={0}>
-                <div className="inline-flex items-center gap-2 bg-[#2E7D32]/10 rounded-full px-4 py-1.5 mb-5 w-max">
-                  <Leaf className="w-3.5 h-3.5 text-[#2E7D32]" />
-                  <span className="text-[#2E7D32] text-xs font-bold font-poppins">SisaRasa adalah Solusinya</span>
+                <div className="inline-flex items-center gap-2 bg-primary-teal/10 rounded-full px-4 py-1.5 mb-5 w-max">
+                  <Leaf className="w-3.5 h-3.5 text-primary-teal" />
+                  <span className="text-primary-teal text-xs font-bold font-poppins">SisaRasa adalah Solusinya</span>
                 </div>
               </ScrollReveal>
               
@@ -407,7 +680,7 @@ export default function LandingPage() {
               </ScrollReveal>
               
               <ScrollReveal direction="left" delay={300}>
-                <Link href="/register" className="inline-flex items-center justify-center gap-2 px-7 py-3.5 rounded-full bg-[#2E7D32] hover:bg-[#236026] text-white font-bold text-sm shadow-md hover:-translate-y-0.5 transition-all duration-200 w-max">
+                <Link href="/register" className="inline-flex items-center justify-center gap-2 px-7 py-3.5 rounded-full bg-primary-teal hover:bg-[#0b5c56] text-white font-bold text-sm shadow-md hover:-translate-y-0.5 transition-all duration-200 w-max">
                   Pelajari Lebih Lanjut
                 </Link>
               </ScrollReveal>
@@ -431,14 +704,14 @@ export default function LandingPage() {
             <h2 className="text-3xl sm:text-4xl font-extrabold text-[#1A1A1A] font-poppins tracking-tight mb-3">
               Cara Kerja SisaRasa
             </h2>
-            <div className="h-1 w-16 bg-[#2E7D32] mx-auto rounded-full mb-4" />
+            <div className="h-1 w-16 bg-primary-teal mx-auto rounded-full mb-4" />
             <p className="text-[#1A1A1A]/70 text-sm sm:text-base">
               Empat langkah mudah untuk menyelamatkan makanan dan menghemat pengeluaran.
             </p>
           </ScrollReveal>
 
           <div className="relative">
-            <div className="hidden lg:block absolute top-8 left-[12%] right-[12%] h-0.5 border-t-2 border-dashed border-[#2E7D32]/15 z-0" />
+            <div className="hidden lg:block absolute top-8 left-[12%] right-[12%] h-0.5 border-t-2 border-dashed border-primary-teal/15 z-0" />
 
             <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-8 sm:gap-6 lg:gap-8 relative z-10">
               {steps.map((step, index) => {
@@ -446,7 +719,7 @@ export default function LandingPage() {
                 return (
                   <ScrollReveal key={step.num} delay={index * 150} className="flex flex-col items-center text-center group">
                     <div className="relative mb-5">
-                      <div className="absolute -top-1 -left-1 w-7 h-7 rounded-full bg-[#2E7D32] text-white text-xs font-bold flex items-center justify-center z-10">
+                      <div className="absolute -top-1 -left-1 w-7 h-7 rounded-full bg-primary-teal text-white text-xs font-bold flex items-center justify-center z-10">
                         {step.num}
                       </div>
                       <div className={`w-16 h-16 rounded-2xl ${step.iconBg} flex items-center justify-center group-hover:scale-105 transition-transform duration-300`}>
@@ -465,14 +738,14 @@ export default function LandingPage() {
       </section>
 
       {/* ===== KEUNTUNGAN ===== */}
-      <section className="py-16 sm:py-20 lg:py-24 bg-[#FFF6E9]/30">
+      <section id="keuntungan" className="py-16 sm:py-20 lg:py-24 bg-[#FFF6E9]/30">
         <div className="mx-auto max-w-7xl px-6 lg:px-12">
           <ScrollReveal direction="up" delay={0}>
             <div className="text-center max-w-2xl mx-auto mb-12">
               <h2 className="text-3xl sm:text-4xl font-extrabold text-[#1A1A1A] font-poppins tracking-tight mb-3">
                 Keuntungan untuk Semua
               </h2>
-              <div className="h-1 w-12 bg-[#2E7D32] mx-auto rounded-full" />
+              <div className="h-1 w-12 bg-primary-teal mx-auto rounded-full" />
             </div>
           </ScrollReveal>
           
@@ -495,6 +768,203 @@ export default function LandingPage() {
         </div>
       </section>
 
+      {/* ===== KATEGORI PILIHAN ===== */}
+      <section className="py-16 sm:py-20 bg-white">
+        <div className="mx-auto max-w-7xl px-6 lg:px-12">
+          
+          <ScrollReveal direction="up" delay={0} className="text-center max-w-2xl mx-auto mb-12">
+            <div className="inline-flex items-center gap-2 bg-primary-teal/10 border border-primary-teal/20 rounded-full px-5 py-1.5 mb-4">
+              <span className="text-primary-teal text-xs font-bold font-poppins tracking-wider uppercase">Jelajahi Rasa</span>
+            </div>
+            <h2 className="text-3xl sm:text-4xl font-extrabold text-dark font-poppins tracking-tight mb-3">
+              Kategori Makanan Pilihan
+            </h2>
+            <p className="text-dark/70 text-sm sm:text-base">
+              Temukan berbagai jenis makanan surplus berkualitas dari UMKM terpercaya di sekitar Anda.
+            </p>
+          </ScrollReveal>
+
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 sm:gap-6 max-w-5xl mx-auto">
+            {loadingCategories ? (
+              Array.from({ length: 4 }).map((_, i) => (
+                <div key={i} className="h-40 bg-slate-50 border border-slate-100 rounded-2xl animate-pulse p-6">
+                  <div className="w-12 h-12 rounded-xl bg-slate-200 mb-5" />
+                  <div className="h-4 bg-slate-200 rounded w-2/3 mb-2" />
+                  <div className="h-3 bg-slate-200 rounded w-full" />
+                </div>
+              ))
+            ) : (
+              (categories.length > 0 ? categories : [
+                { id: '1', name: 'Roti & Kue', slug: 'roti-kue' },
+                { id: '2', name: 'Makanan Berat', slug: 'makanan-berat' },
+                { id: '3', name: 'Kopi & Minuman', slug: 'kopi-minuman' },
+                { id: '4', name: 'Buah & Sayur', slug: 'buah-sayur' }
+              ]).map((c: any, index: number) => {
+                const details = getCategoryDetails(c.slug || '')
+                const IconComponent = details.icon
+                return (
+                  <ScrollReveal key={c.id || index} delay={index * 100} className="h-full">
+                    <Link href="/foods" className={`h-full flex flex-col p-6 rounded-2xl border transition-all duration-300 ${details.color} group hover:shadow-md hover:-translate-y-1`}>
+                      <div className="w-12 h-12 rounded-xl bg-white flex items-center justify-center shadow-sm mb-5 group-hover:scale-110 transition-transform">
+                        <IconComponent className="w-6 h-6" />
+                      </div>
+                      <h3 className="font-bold text-base text-dark mb-1 font-poppins">{c.name}</h3>
+                      <p className="text-xs text-dark/60 leading-normal">{details.desc}</p>
+                    </Link>
+                  </ScrollReveal>
+                )
+              })
+            )}
+          </div>
+
+        </div>
+      </section>
+
+      {/* ===== MAKANAN SURPLUS TERBARU ===== */}
+      <section className="py-16 sm:py-20 bg-cream-bg/20 border-t border-slate-100">
+        <div className="mx-auto max-w-7xl px-6 lg:px-12">
+          
+          <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-12">
+            <ScrollReveal direction="left" delay={0} className="max-w-2xl">
+              <div className="inline-flex items-center gap-2 bg-primary-orange/10 border border-primary-orange/20 rounded-full px-5 py-1.5 mb-4">
+                <span className="text-primary-orange text-xs font-bold font-poppins tracking-wider uppercase">Terbatas & Hemat</span>
+              </div>
+              <h2 className="text-3xl sm:text-4xl font-extrabold text-dark font-poppins tracking-tight mb-3">
+                Makanan Surplus Terbaru
+              </h2>
+              <p className="text-dark/70 text-sm sm:text-base">
+                Buruan pesan! Makanan lezat ini masih sangat layak konsumsi dan hanya bertahan beberapa jam lagi sebelum toko tutup.
+              </p>
+            </ScrollReveal>
+            
+            <ScrollReveal direction="right" delay={150} className="shrink-0">
+              <Link href="/foods" className="inline-flex items-center gap-2 px-6 py-3 rounded-full bg-primary-teal hover:bg-primary-teal/90 text-white font-bold text-xs shadow-md transition-all">
+                Cari Semua Makanan
+                <ArrowRight className="w-4 h-4" />
+              </Link>
+            </ScrollReveal>
+          </div>
+
+          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-8 max-w-6xl mx-auto">
+            {loadingProducts ? (
+              Array.from({ length: 3 }).map((_, i) => (
+                <div key={i} className="bg-white rounded-2xl border border-slate-100 p-6 shadow-sm animate-pulse flex flex-col gap-4">
+                  <div className="h-48 bg-slate-100 rounded-xl animate-pulse" />
+                  <div className="space-y-3">
+                    <div className="h-4 bg-slate-200 rounded w-2/3 animate-pulse" />
+                    <div className="h-4 bg-slate-200 rounded w-1/2 animate-pulse" />
+                  </div>
+                  <div className="h-8 bg-slate-100 rounded animate-pulse" />
+                </div>
+              ))
+            ) : (
+              (products.length > 0 ? products : [
+                {
+                  id: 'mock1',
+                  title: 'Roti Coklat Klasik Premium',
+                  stores: { store_name: 'Bakery Mama - Menteng' },
+                  original_price: 16000,
+                  discount_price: 8000,
+                  stock: 3,
+                  expired_at: new Date(Date.now() + 1.5 * 3600000).toISOString(),
+                  thumbnail_url: 'https://images.unsplash.com/photo-1549931319-a545dcf3bc73?auto=format&fit=crop&q=80&w=400'
+                },
+                {
+                  id: 'mock2',
+                  title: 'Nasi Kotak Ayam Bakar Madu',
+                  stores: { store_name: 'Katering Selera Nusantara' },
+                  original_price: 28000,
+                  discount_price: 16800,
+                  stock: 5,
+                  expired_at: new Date(Date.now() + 4.8 * 3600000).toISOString(),
+                  thumbnail_url: 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&q=80&w=400'
+                },
+                {
+                  id: 'mock3',
+                  title: 'Matcha Latte Premium',
+                  stores: { store_name: 'Kopi Seduh & Teman' },
+                  original_price: 22000,
+                  discount_price: 11000,
+                  stock: 2,
+                  expired_at: new Date(Date.now() + 2.2 * 3600000).toISOString(),
+                  thumbnail_url: 'https://images.unsplash.com/photo-1536256263959-770b48d82b0a?auto=format&fit=crop&q=80&w=400'
+                }
+              ]).map((prod: any, index: number) => {
+                const discountPercent = prod.original_price > 0 
+                  ? Math.round(((prod.original_price - prod.discount_price) / prod.original_price) * 100) 
+                  : 0
+                
+                const timeLeftMs = new Date(prod.expired_at).getTime() - Date.now()
+                const hoursLeft = Math.max(0.1, timeLeftMs / 3600000)
+
+                let tag = 'Fresh Hari Ini'
+                let tagBg = 'bg-emerald-100 text-emerald-700'
+                if (prod.stock <= 2) {
+                  tag = 'Hampir Habis'
+                  tagBg = 'bg-amber-100 text-amber-700'
+                } else if (hoursLeft < 3) {
+                  tag = 'Last Chance'
+                  tagBg = 'bg-rose-100 text-rose-700'
+                }
+
+                const storeName = prod.stores?.store_name || 'Mitra UMKM'
+                const imageUrl = prod.thumbnail_url || 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&q=80&w=400'
+
+                return (
+                  <ScrollReveal key={prod.id || index} delay={index * 150} className="bg-white rounded-2xl border border-slate-100 overflow-hidden shadow-sm hover:shadow-lg transition-all duration-300 group flex flex-col">
+                    <div className="relative h-48 overflow-hidden bg-slate-100">
+                      <img
+                        src={imageUrl}
+                        alt={prod.title}
+                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                        loading="lazy"
+                      />
+                      {discountPercent > 0 && (
+                        <div className="absolute top-4 left-4 bg-primary-orange text-white text-[10px] font-black px-2.5 py-1.5 rounded-lg shadow-md font-poppins">
+                          -{discountPercent}%
+                        </div>
+                      )}
+                      <div className="absolute bottom-4 right-4">
+                        <CountdownTimer hoursLeft={hoursLeft} />
+                      </div>
+                    </div>
+                    
+                    <div className="p-6 flex-1 flex flex-col justify-between">
+                      <div>
+                        <div className="flex items-center justify-between gap-2 mb-2">
+                          <span className="text-[10px] font-bold text-dark/40 uppercase tracking-wider truncate max-w-[150px]">{storeName}</span>
+                          <span className={`text-[10px] font-extrabold px-2 py-0.5 rounded-full shrink-0 ${tagBg}`}>{tag}</span>
+                        </div>
+                        <h3 className="font-bold text-base text-dark mb-3 font-poppins line-clamp-1 group-hover:text-primary-teal transition-colors">
+                          {prod.title}
+                        </h3>
+                      </div>
+
+                      <div>
+                        <div className="flex items-center gap-2 mb-4">
+                          <span className="text-[11px] text-dark/40 line-through">Rp {prod.original_price.toLocaleString('id-ID')}</span>
+                          <span className="text-base font-extrabold text-primary-teal font-poppins">Rp {prod.discount_price.toLocaleString('id-ID')}</span>
+                        </div>
+
+                        <div className="flex items-center justify-between border-t border-slate-50 pt-4">
+                          <div className="text-[11px] text-dark/50 font-medium">
+                            Stok: <span className="font-bold text-dark">{prod.stock} porsi</span>
+                          </div>
+                          <Link href={`/foods/${prod.id}`} className="inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl bg-primary-teal hover:bg-primary-teal/90 text-white font-bold text-[11px] transition-all">
+                            Pesan
+                            <ShoppingBag size={12} />
+                          </Link>
+                        </div>
+                      </div>
+                    </div>
+                  </ScrollReveal>
+                )
+              })
+            )}
+          </div>
+
+        </div>
+      </section>
       {/* ===== FAQ ===== */}
       <section id="faq" className="py-16 sm:py-20 lg:py-24 bg-white">
         <div className="mx-auto max-w-7xl px-6 lg:px-12">
@@ -503,7 +973,7 @@ export default function LandingPage() {
               <h2 className="text-3xl sm:text-4xl font-extrabold text-[#1A1A1A] font-poppins tracking-tight mb-3">
                 Pertanyaan yang Sering Diajukan
               </h2>
-              <div className="h-1 w-12 bg-[#2E7D32] mx-auto rounded-full" />
+              <div className="h-1 w-12 bg-primary-teal mx-auto rounded-full" />
             </div>
           </ScrollReveal>
 
@@ -517,10 +987,10 @@ export default function LandingPage() {
                       onClick={() => setOpenFaq(isOpen ? null : i)}
                       className="flex items-center justify-between w-full text-left gap-4 group py-5"
                     >
-                      <span className="font-bold text-sm sm:text-base text-[#1A1A1A] group-hover:text-[#2E7D32] transition-colors pr-2 leading-snug">
+                      <span className="font-bold text-sm sm:text-base text-[#1A1A1A] group-hover:text-primary-teal transition-colors pr-2 leading-snug">
                         {faq.q}
                       </span>
-                      <ChevronDown size={18} className={`shrink-0 text-[#2E7D32] transition-transform duration-300 ${isOpen ? 'rotate-180' : ''}`} />
+                      <ChevronDown size={18} className={`shrink-0 text-primary-teal transition-transform duration-300 ${isOpen ? 'rotate-180' : ''}`} />
                     </button>
                     <div className={`overflow-hidden transition-all duration-300 ease-in-out ${isOpen ? 'max-h-40 pb-5 opacity-100' : 'max-h-0 opacity-0'}`}>
                       <p className="text-sm text-[#1A1A1A]/70 leading-relaxed font-sans">{faq.a}</p>
@@ -558,7 +1028,7 @@ export default function LandingPage() {
             
             <ScrollReveal direction="up" delay={200}>
               <div className="flex flex-col sm:flex-row gap-4 w-full sm:w-auto justify-center">
-                <Link href="/register" className="inline-flex items-center justify-center gap-2 px-8 py-4 rounded-full bg-[#2E7D32] hover:bg-[#236026] text-white font-bold text-sm shadow-md hover:-translate-y-0.5 transition-all duration-200">
+                <Link href="/register" className="inline-flex items-center justify-center gap-2 px-8 py-4 rounded-full bg-primary-teal hover:bg-[#0b5c56] text-white font-bold text-sm shadow-md hover:-translate-y-0.5 transition-all duration-200">
                   Daftar Sekarang
                 </Link>
                 <Link href="/foods" className="inline-flex items-center justify-center gap-2 px-8 py-4 rounded-full border border-white/40 bg-white/10 backdrop-blur-sm text-white font-bold text-sm hover:bg-white/20 hover:-translate-y-0.5 transition-all duration-200">
@@ -578,7 +1048,7 @@ export default function LandingPage() {
             <div className="lg:col-span-4 flex flex-col justify-start">
               <Link href="/" className="flex items-center gap-3 mb-5 w-max">
                 <Image src="/images/logo.png" alt="SisaRasa Logo" width={32} height={32} className="object-contain" />
-                <span className="font-bold text-xl text-[#2E7D32] font-poppins tracking-tight">SisaRasa</span>
+                <span className="font-bold text-xl text-primary-teal font-poppins tracking-tight">SisaRasa</span>
               </Link>
               <p className="text-sm text-[#1A1A1A]/60 leading-relaxed max-w-sm mb-6">
                 Platform food rescue yang menghubungkan UMKM makanan dengan pembeli untuk mengurangi food waste dan berbagi kebaikan.
@@ -589,9 +1059,9 @@ export default function LandingPage() {
               <div>
                 <h3 className="font-bold text-sm text-[#1A1A1A] mb-5 font-poppins">Navigasi</h3>
                 <ul className="space-y-3.5">
-                  {['Beranda', 'Tentang', 'Cara Kerja'].map((l) => (
+                  {['Beranda', 'Tentang', 'Keuntungan', 'Cara Kerja', 'Makanan'].map((l) => (
                     <li key={l}>
-                      <Link href={l === 'Beranda' ? '/' : `#${l.toLowerCase().replace(/\s/g, '-')}`} className="text-sm text-[#1A1A1A]/60 hover:text-[#2E7D32] transition-colors">{l}</Link>
+                      <Link href={l === 'Beranda' ? '/' : l === 'Makanan' ? '/foods' : `#${l.toLowerCase().replace(/\s/g, '-')}`} className="text-sm text-[#1A1A1A]/60 hover:text-primary-teal transition-colors">{l}</Link>
                     </li>
                   ))}
                 </ul>
@@ -601,7 +1071,7 @@ export default function LandingPage() {
                 <ul className="space-y-3.5">
                   {['FAQ', 'Pusat Bantuan', 'Kebijakan Privasi', 'Syarat & Ketentuan'].map((l) => (
                     <li key={l}>
-                      <Link href="#faq" className="text-sm text-[#1A1A1A]/60 hover:text-[#2E7D32] transition-colors">{l}</Link>
+                      <Link href="#faq" className="text-sm text-[#1A1A1A]/60 hover:text-primary-teal transition-colors">{l}</Link>
                     </li>
                   ))}
                 </ul>
@@ -619,7 +1089,7 @@ export default function LandingPage() {
                 ].map((s, i) => {
                   const IconComponent = s.Icon
                   return (
-                    <a key={i} href={s.href} className="w-10 h-10 rounded-full border border-slate-200 flex items-center justify-center text-[#1A1A1A]/60 hover:border-[#2E7D32] hover:text-[#2E7D32] hover:bg-[#2E7D32]/5 transition-all" aria-label="Social Media">
+                    <a key={i} href={s.href} className="w-10 h-10 rounded-full border border-slate-200 flex items-center justify-center text-[#1A1A1A]/60 hover:border-primary-teal hover:text-primary-teal hover:bg-primary-teal/5 transition-all" aria-label="Social Media">
                       <IconComponent />
                     </a>
                   )
