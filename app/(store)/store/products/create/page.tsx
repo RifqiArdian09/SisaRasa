@@ -180,6 +180,13 @@ export default function CreateProductPage() {
         }
       }
 
+      // Kirim notifikasi ke customer yang follow toko ini
+      fetch('/api/notifications/new-product', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ product_id: product.id }),
+      }).catch(() => {})
+
       toast.success('Produk makanan berhasil ditambahkan!')
       router.push('/store/products')
       router.refresh()

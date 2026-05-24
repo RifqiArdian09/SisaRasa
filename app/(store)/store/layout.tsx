@@ -33,7 +33,7 @@ export default function StoreLayout({ children }: StoreLayoutProps) {
 
   const handleLogout = async () => {
     await supabase.auth.signOut()
-    router.push('/login')
+    window.location.href = '/login'
   }
 
   // Close sidebar on route change

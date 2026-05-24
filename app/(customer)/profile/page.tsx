@@ -143,8 +143,7 @@ export default function ProfilePage() {
 
   const handleLogout = async () => {
     await supabase.auth.signOut()
-    toast.success('Berhasil keluar. Sampai jumpa!')
-    router.push('/login')
+    window.location.href = '/login'
   }
 
   if (loading) return (
