@@ -32,7 +32,8 @@ const menuItems = [
 ]
 
 export default function ProfilePage() {
-  const supabase = createClient()
+  const supabaseRef = useRef(createClient())
+  const supabase = supabaseRef.current
   const router = useRouter()
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [profile, setProfile] = useState<Profile | null>(null)
@@ -44,16 +45,20 @@ export default function ProfilePage() {
   const [saving, setSaving] = useState(false)
 
   useEffect(() => {
+    let cancelled = false
     const fetchProfile = async () => {
       try {
         const { data: { user } } = await supabase.auth.getUser()
         if (!user) { router.push('/login'); return }
+        if (cancelled) return
 
         const { data: prof } = await supabase.from('users').select('*').eq('id', user.id).single()
-        if (prof) {
+        if (prof && !cancelled) {
           setProfile(prof as Profile)
           setFormName(prof.name || '')
         }
+
+        if (cancelled) return
 
         const { count: ordCount } = await supabase
           .from('orders').select('*', { count: 'exact', head: true })
@@ -70,16 +75,16 @@ export default function ProfilePage() {
           .eq('orders.status', 'selesai')
 
         const saved = (items || []).reduce((s, i) => s + (i.quantity || 0), 0)
-        setStats({ totalOrders: ordCount || 0, totalSaved: saved, favorites: favCount || 0 })
+        if (!cancelled) setStats({ totalOrders: ordCount || 0, totalSaved: saved, favorites: favCount || 0 })
       } catch {
         toast.error('Gagal memuat profil.')
       } finally {
-        setLoading(false)
+        if (!cancelled) setLoading(false)
       }
     }
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchProfile()
-  }, [supabase, router])
+    return () => { cancelled = true }
+  }, [router])
 
   const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
