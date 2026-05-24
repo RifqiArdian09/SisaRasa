@@ -4,7 +4,7 @@ import React, { useEffect, useState, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
 import {
-  User, Mail, Phone, LogOut, Settings,
+  User, Mail, LogOut, Settings,
   ChevronRight, ShoppingBag, Heart, Star, Shield,
   Edit3, Camera, Loader2
 } from 'lucide-react'
@@ -15,7 +15,6 @@ interface Profile {
   id: string
   name: string
   email: string
-  phone: string | null
   avatar_url: string | null
   role: string
 }
@@ -42,7 +41,6 @@ export default function ProfilePage() {
   const [uploading, setUploading] = useState(false)
   const [editing, setEditing] = useState(false)
   const [formName, setFormName] = useState('')
-  const [formPhone, setFormPhone] = useState('')
   const [saving, setSaving] = useState(false)
 
   useEffect(() => {
@@ -55,7 +53,6 @@ export default function ProfilePage() {
         if (prof) {
           setProfile(prof as Profile)
           setFormName(prof.name || '')
-          setFormPhone(prof.phone || '')
         }
 
         const { count: ordCount } = await supabase
@@ -127,9 +124,9 @@ export default function ProfilePage() {
     try {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) return
-      const { error } = await supabase.from('users').update({ name: formName, phone: formPhone }).eq('id', user.id)
+      const { error } = await supabase.from('users').update({ name: formName }).eq('id', user.id)
       if (error) throw error
-      setProfile(prev => prev ? { ...prev, name: formName, phone: formPhone } : null)
+      setProfile(prev => prev ? { ...prev, name: formName } : null)
       setEditing(false)
       toast.success('Profil berhasil diperbarui!')
     } catch {
@@ -146,7 +143,7 @@ export default function ProfilePage() {
   }
 
   if (loading) return (
-    <div className="min-h-screen bg-[#F8FAFC]">
+    <div className="min-h-full bg-cream-bg overflow-x-hidden">
       <div className="animate-pulse px-5 pt-14 space-y-6">
         <div className="flex flex-col items-center gap-3">
           <div className="w-20 h-20 rounded-full bg-[#E5E7EB]" />
@@ -160,7 +157,7 @@ export default function ProfilePage() {
   )
 
   return (
-    <div className="min-h-full bg-[#F8FAFC]">
+    <div className="min-h-full bg-cream-bg overflow-x-hidden">
       <div className="bg-gradient-to-br from-primary-orange via-[#FF7A00] to-amber-500 h-44 relative rounded-b-[40px] shadow-sm">
         <div className="absolute inset-0 opacity-10">
           <div className="absolute -right-10 -top-10 w-48 h-48 rounded-full bg-white" />
@@ -188,7 +185,7 @@ export default function ProfilePage() {
             </button>
             <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleAvatarUpload} />
           </div>
-          <h2 className="font-bold text-[#080C1A] text-xl mt-3">{profile?.name || '-'}</h2>
+          <h2 className="font-bold text-dark text-xl mt-3">{profile?.name || '-'}</h2>
           <span className="text-xs font-bold text-[#0F766E] bg-[#0F766E]/10 px-3 py-1 rounded-full mt-1 capitalize">
             {profile?.role === 'customer' ? 'Pembeli' : profile?.role}
           </span>
@@ -214,19 +211,11 @@ export default function ProfilePage() {
               <label className="text-xs font-semibold text-[#6A7686] block mb-1">Nama Lengkap</label>
               <input
                 value={formName} onChange={e => setFormName(e.target.value)}
-                className="w-full px-4 py-2.5 rounded-xl ring-1 ring-[#E5E7EB] text-sm text-[#080C1A] bg-white focus:ring-[#0F766E] outline-none transition-all"
-              />
-            </div>
-            <div>
-              <label className="text-xs font-semibold text-[#6A7686] block mb-1">Nomor HP</label>
-              <input
-                value={formPhone || ''} onChange={e => setFormPhone(e.target.value)}
-                className="w-full px-4 py-2.5 rounded-xl ring-1 ring-[#E5E7EB] text-sm text-[#080C1A] bg-white focus:ring-[#0F766E] outline-none transition-all"
-                placeholder="08xxxxxxxxxx"
+                className="w-full px-4 py-2.5 rounded-xl ring-1 ring-[#E5E7EB] text-sm text-dark bg-white focus:ring-[#0F766E] outline-none transition-all"
               />
             </div>
             <div className="flex gap-3 pt-1">
-              <button onClick={() => setEditing(false)} className="flex-1 py-2.5 rounded-full ring-1 ring-[#E5E7EB] text-sm font-semibold text-[#080C1A] hover:bg-[#F3F6F8]">Batal</button>
+              <button onClick={() => setEditing(false)} className="flex-1 py-2.5 rounded-full ring-1 ring-[#E5E7EB] text-sm font-semibold text-dark hover:bg-[#F3F6F8]">Batal</button>
               <button onClick={handleSave} disabled={saving} className="flex-1 py-2.5 rounded-full bg-[#0F766E] text-white text-sm font-bold disabled:opacity-50">
                 {saving ? 'Menyimpan...' : 'Simpan Perubahan'}
               </button>
@@ -243,7 +232,6 @@ export default function ProfilePage() {
             {[
               { icon: User, label: 'Nama', value: profile?.name },
               { icon: Mail, label: 'Email', value: profile?.email },
-              { icon: Phone, label: 'Nomor HP', value: profile?.phone || '(belum diisi)' },
             ].map(({ icon: Icon, label, value }) => (
               <div key={label} className="flex items-center gap-3">
                 <div className="w-8 h-8 rounded-lg bg-[#F3F6F8] flex items-center justify-center shrink-0">
@@ -251,7 +239,7 @@ export default function ProfilePage() {
                 </div>
                 <div className="min-w-0">
                   <p className="text-[10px] text-[#6A7686] font-semibold">{label}</p>
-                  <p className="text-sm text-[#080C1A] font-medium truncate">{value}</p>
+                  <p className="text-sm text-dark font-medium truncate">{value}</p>
                 </div>
               </div>
             ))}
@@ -262,7 +250,7 @@ export default function ProfilePage() {
           {menuItems.map(({ href, icon: Icon, label, color }) => (
             <a key={href} href={href} className="flex items-center gap-3 px-4 py-3.5 hover:bg-[#F3F6F8] transition-colors">
               <Icon className={`size-4 ${color}`} />
-              <span className="flex-1 text-sm font-semibold text-[#080C1A]">{label}</span>
+              <span className="flex-1 text-sm font-semibold text-dark">{label}</span>
               <ChevronRight className="size-4 text-[#6A7686]" />
             </a>
           ))}

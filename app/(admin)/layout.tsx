@@ -6,10 +6,11 @@ import Image from 'next/image'
 import { usePathname, useRouter } from 'next/navigation'
 import {
   LayoutDashboard, Users, Store, Package, ShoppingBag, Star,
-  BarChart2, Bell, Settings, LogOut, X, Menu,
-  Search, Plus, ChevronRight, AlertTriangle
+  BarChart2, Settings, LogOut, X, Menu,
+  Search, ChevronRight
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
+import { Toaster, toast } from 'react-hot-toast'
 
 // Menu configurations moved inside component to access dynamic state
 
@@ -33,7 +34,6 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
   const [showLogoutModal, setShowLogoutModal] = useState(false)
   const [adminName, setAdminName] = useState('Admin')
   const [pendingStoresCount, setPendingStoresCount] = useState(0)
-  const [unreadNotifsCount, setUnreadNotifsCount] = useState(0)
 
   // Close sidebar on route change
   useEffect(() => {
@@ -45,16 +45,7 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
     const fetchCounts = async () => {
       const { data: { user } } = await supabase.auth.getUser()
 
-      const [
-        { count: storesCount },
-        { count: notifsCount }
-      ] = await Promise.all([
-        supabase.from('stores').select('*', { count: 'exact', head: true }).eq('is_verified', false),
-        supabase.from('notifications').select('*', { count: 'exact', head: true }).eq('is_read', false)
-      ])
-      
-      setPendingStoresCount(storesCount || 0)
-      setUnreadNotifsCount(notifsCount || 0)
+      const { count: storesCount } = await supabase.from('stores').select('*', { count: 'exact', head: true }).eq('is_verified', false)
 
       if (user) {
         const { data: profile } = await supabase
@@ -65,10 +56,37 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
         if (profile) setAdminName(profile.name)
       }
     }
-    
+
     fetchCounts()
-    
-    // Optional: Realtime subscriptions could be added here
+
+    // Realtime: listen for new stores registering
+    const storesChannel = supabase
+      .channel('admin-stores')
+      .on('postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'stores' },
+        (payload) => {
+          setPendingStoresCount(prev => prev + 1)
+          toast(
+            (t) => (
+              <div className="flex items-center gap-3">
+                <div className="size-10 rounded-full bg-orange-100 flex items-center justify-center shrink-0">
+                  <Store className="size-5 text-orange-600" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="font-bold text-sm">Toko Baru Mendaftar!</p>
+                  <p className="text-xs text-[#6A7686] truncate">{payload.new?.store_name || 'Toko baru'} menunggu verifikasi</p>
+                </div>
+              </div>
+            ),
+            { duration: 5000 }
+          )
+        }
+      )
+      .subscribe()
+
+    return () => {
+      supabase.removeChannel(storesChannel)
+    }
   }, [supabase])
 
   const MAIN_MENU = [
@@ -82,7 +100,6 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
 
   const SYSTEM_MENU = [
     { href: '/admin/reports', icon: BarChart2, label: 'Reports' },
-    { href: '/admin/notifications', icon: Bell, label: 'Notifications', badge: unreadNotifsCount > 0 ? unreadNotifsCount : undefined },
     { href: '/admin/settings', icon: Settings, label: 'Settings' },
   ]
 
@@ -111,12 +128,13 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
   const titleMap: Record<string, string> = {
     dashboard: 'Overview', users: 'Users', stores: 'Stores',
     products: 'Products', orders: 'Orders', reviews: 'Reviews',
-    reports: 'Reports', notifications: 'Notifications', settings: 'Settings',
+    reports: 'Reports', settings: 'Settings',
   }
   const displayTitle = titleMap[pageTitle] ?? pageTitle
 
   return (
-    <div className="flex h-screen max-h-screen overflow-hidden bg-[#F3F6F8] text-[#080C1A] font-sans">
+    <div className="flex h-screen max-h-screen overflow-hidden bg-cream-bg text-dark font-sans">
+      <Toaster position="top-right" />
 
       {/* Mobile Overlay */}
       {sidebarOpen && (
@@ -232,7 +250,7 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
               onClick={() => setSidebarOpen(true)}
               className="lg:hidden size-11 flex items-center justify-center rounded-xl bg-white ring-1 ring-[#E5E7EB] hover:ring-[#0F766E] transition-all duration-300 cursor-pointer shadow-sm"
             >
-              <Menu className="size-5 text-[#080C1A]" />
+              <Menu className="size-5 text-dark" />
             </button>
             <div className="hidden sm:block">
               <h2 className="font-bold text-xl md:text-2xl">{displayTitle}</h2>
@@ -246,12 +264,6 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
               className="size-11 flex items-center justify-center rounded-xl bg-white ring-1 ring-[#E5E7EB] hover:ring-[#0F766E] transition-all duration-300 cursor-pointer shadow-sm"
             >
               <Search className="size-5 text-[#6A7686]" />
-            </button>
-            <button className="size-11 flex items-center justify-center rounded-xl bg-white ring-1 ring-[#E5E7EB] hover:ring-[#0F766E] transition-all duration-300 cursor-pointer shadow-sm relative">
-              <Bell className="size-5 text-[#6A7686]" />
-              {unreadNotifsCount > 0 && (
-                <span className="absolute top-2 right-2.5 size-2 rounded-full bg-[#FF8A00] ring-2 ring-white" />
-              )}
             </button>
           </div>
         </header>
@@ -293,7 +305,7 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
                   ref={searchInputRef}
                   type="text"
                   placeholder="Search stores, users, or orders..."
-                  className="flex-1 py-4 bg-transparent outline-none text-[#080C1A] font-medium placeholder:text-[#6A7686]"
+                  className="flex-1 py-4 bg-transparent outline-none text-dark font-medium placeholder:text-[#6A7686]"
                 />
                 <kbd className="hidden sm:inline-flex items-center gap-1 px-2 py-1 bg-white rounded-lg text-[10px] font-bold text-[#6A7686] border border-[#E5E7EB] shadow-sm">
                   ESC

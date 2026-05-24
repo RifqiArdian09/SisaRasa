@@ -123,7 +123,7 @@ export default function AdminProductsPage() {
 
   const counts = { all: products.length, active: products.filter(p => p.status === 'active').length, expired: products.filter(p => p.status === 'expired').length, low_stock: products.filter(p => p.status === 'low_stock').length }
   const discount = (orig: number, disc: number) => orig > 0 ? Math.round((1 - disc / orig) * 100) : 0
-  const TABS = [{ key: 'all', label: 'Semua' }, { key: 'active', label: 'Aktif' }, { key: 'low_stock', label: '⚠️ Stok Tipis' }, { key: 'expired', label: '❌ Expired' }] as const
+  const TABS = [{ key: 'all', label: 'Semua' }, { key: 'active', label: 'Aktif' }, { key: 'low_stock', label: 'Stok Tipis' }, { key: 'expired', label: 'Expired' }] as const
 
   const allImages = (product: ProductItem) => {
     const imgs: string[] = []
@@ -240,15 +240,15 @@ export default function AdminProductsPage() {
 
               <div className="grid grid-cols-3 gap-3 mb-4">
                 <div className="bg-[#F3F6F8] rounded-xl px-3 py-2.5 text-center">
-                  <p className="text-lg font-bold text-[#080C1A]">{detailProduct.stock}</p>
+                  <p className="text-lg font-bold text-dark">{detailProduct.stock}</p>
                   <p className="text-[10px] text-[#6A7686] font-semibold">Stok</p>
                 </div>
                 <div className="bg-[#F3F6F8] rounded-xl px-3 py-2.5 text-center">
-                  <p className={`text-lg font-bold ${detailProduct.isExpired ? 'text-red-500' : 'text-[#080C1A]'}`}>{detailProduct.expiredIn}</p>
+                  <p className={`text-lg font-bold ${detailProduct.isExpired ? 'text-red-500' : 'text-dark'}`}>{detailProduct.expiredIn}</p>
                   <p className="text-[10px] text-[#6A7686] font-semibold">Masa Berlaku</p>
                 </div>
                 <div className="bg-[#F3F6F8] rounded-xl px-3 py-2.5 text-center">
-                  <p className="text-lg font-bold text-[#080C1A]">{detailProduct.createdAt}</p>
+                  <p className="text-lg font-bold text-dark">{detailProduct.createdAt}</p>
                   <p className="text-[10px] text-[#6A7686] font-semibold">Dibuat</p>
                 </div>
               </div>

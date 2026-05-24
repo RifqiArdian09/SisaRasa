@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
+import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import Image from 'next/image'
 import {
@@ -52,10 +53,26 @@ const STATUS_MAP: Record<string, { label: string; class: string }> = {
 
 export default function CustomerDashboardPage() {
   const supabase = createClient()
+  const router = useRouter()
   const [profile, setProfile] = useState<Profile | null>(null)
   const [orders, setOrders] = useState<Order[]>([])
   const [stats, setStats] = useState<Stats>({ totalOrders: 0, savedPortions: 0, favoriteStores: 0 })
   const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    const checkRole = async () => {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return
+      const { data: prof } = await supabase
+        .from('users')
+        .select('role')
+        .eq('id', user.id)
+        .single()
+      if (prof?.role === 'store') router.replace('/store/dashboard')
+      else if (prof?.role === 'admin') router.replace('/admin/dashboard')
+    }
+    checkRole()
+  }, [router, supabase])
 
   useEffect(() => {
     const fetchData = async () => {
@@ -120,7 +137,7 @@ export default function CustomerDashboardPage() {
     new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(v)
 
   return (
-    <div className="min-h-full bg-[#F8FAFC]">
+    <div className="min-h-full bg-cream-bg">
       {/* Top Header */}
       <div className="bg-gradient-to-br from-primary-orange via-[#FF7A00] to-amber-500 pt-safe px-5 pb-12 relative rounded-b-[40px] shadow-lg">
         <div className="absolute inset-0 opacity-10">

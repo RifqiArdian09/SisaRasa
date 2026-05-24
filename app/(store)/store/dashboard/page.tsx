@@ -54,7 +54,6 @@ interface Order {
   users: {
     name: string
     email: string
-    phone: string
   }
   order_items: OrderItem[]
 }
@@ -107,8 +106,7 @@ export default function MerchantDashboard() {
           customer_id,
           users (
             name,
-            email,
-            phone
+            email
           ),
           order_items (
             id,

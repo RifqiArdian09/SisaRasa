@@ -68,7 +68,7 @@ export default function FavoritesPage() {
   }
 
   return (
-    <div className="min-h-full bg-[#F8FAFC]">
+    <div className="min-h-full bg-cream-bg">
       {/* Header */}
       <div className="bg-white px-5 pt-safe pb-4 sticky top-0 z-20 shadow-sm rounded-b-3xl">
         <div className="mt-4">

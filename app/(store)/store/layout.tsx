@@ -6,7 +6,7 @@ import Image from 'next/image'
 import { usePathname, useRouter } from 'next/navigation'
 import {
   LayoutDashboard, ShoppingBag, ClipboardList, BarChart3,
-  Star, Bell, Settings, LogOut, X, Menu, Search, ChevronRight,
+  Star, Settings, LogOut, X, Menu, Search, ChevronRight,
   Store as StoreIcon, MessageSquare, Clock, User
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
@@ -18,13 +18,15 @@ interface StoreLayoutProps {
 export default function StoreLayout({ children }: StoreLayoutProps) {
   const pathname = usePathname()
   const router = useRouter()
-  const supabase = createClient()
+  const supabaseRef = useRef(createClient())
+  const supabase = supabaseRef.current
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [searchOpen, setSearchOpen] = useState(false)
   const [showLogoutModal, setShowLogoutModal] = useState(false)
-  const [unreadNotifsCount, setUnreadNotifsCount] = useState(0)
+  const [unreadOrdersCount, setUnreadOrdersCount] = useState(0)
   const [storeName, setStoreName] = useState('Mitra Toko')
   const [userName, setUserName] = useState('')
+  const [storeId, setStoreId] = useState<string | null>(null)
   const storeNameInitial = storeName.charAt(0)
 
   const searchInputRef = useRef<HTMLInputElement>(null)
@@ -39,33 +41,68 @@ export default function StoreLayout({ children }: StoreLayoutProps) {
     setSidebarOpen(false)
   }, [pathname])
 
-  // Fetch store info, user name, and unread notifs
+  // Fetch store info, user name, unread notifs, and pending orders
   useEffect(() => {
+    const channelRef: { current: ReturnType<typeof supabase.channel> | null } = { current: null }
+    let cancelled = false
+
     const fetchData = async () => {
       const { data: { user } } = await supabase.auth.getUser()
-      if (!user) return
+      if (!user || cancelled) return
 
-      const [storeResult, profileResult, notifResult] = await Promise.all([
-        supabase.from('stores').select('store_name').eq('user_id', user.id).single(),
+      const [storeResult, profileResult] = await Promise.all([
+        supabase.from('stores').select('id, store_name').eq('user_id', user.id).single(),
         supabase.from('users').select('name').eq('id', user.id).single(),
-        supabase.from('notifications').select('*', { count: 'exact', head: true }).eq('user_id', user.id).eq('is_read', false),
       ])
 
-      if (storeResult.data) setStoreName(storeResult.data.store_name)
-      if (profileResult.data) setUserName(profileResult.data.name)
-      setUnreadNotifsCount(notifResult.count || 0)
+      if (storeResult.data && !cancelled) {
+        const sid = storeResult.data.id
+        setStoreName(storeResult.data.store_name)
+        setStoreId(sid)
+        // Fetch pending orders count
+        const { count } = await supabase
+          .from('orders')
+          .select('*', { count: 'exact', head: true })
+          .eq('store_id', sid)
+          .eq('status', 'pending')
+        setUnreadOrdersCount(count || 0)
+
+        if (!cancelled) {
+          // Realtime listener for this store's orders
+          channelRef.current = supabase
+            .channel(`store-layout-orders-${sid}-${Date.now()}`)
+            .on('postgres_changes',
+              { event: '*', schema: 'public', table: 'orders', filter: `store_id=eq.${sid}` },
+              async () => {
+                const { count } = await supabase
+                  .from('orders')
+                  .select('*', { count: 'exact', head: true })
+                  .eq('store_id', sid)
+                  .eq('status', 'pending')
+                setUnreadOrdersCount(count || 0)
+              }
+            )
+            .subscribe()
+        }
+      }
+      if (profileResult.data && !cancelled) setUserName(profileResult.data.name)
     }
+
     fetchData()
-  }, [supabase])
+
+    return () => {
+      cancelled = true
+      if (channelRef.current) supabase.removeChannel(channelRef.current)
+    }
+  }, [])
 
   const NAV_MENU = [
     { href: '/store/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
     { href: '/store/products', icon: ShoppingBag, label: 'Produk' },
-    { href: '/store/orders', icon: ClipboardList, label: 'Pesanan' },
+    { href: '/store/orders', icon: ClipboardList, label: 'Pesanan', badge: unreadOrdersCount > 0 ? unreadOrdersCount : undefined },
     { href: '/store/chat', icon: MessageSquare, label: 'Pesan', badge: undefined as number | undefined },
     { href: '/store/analytics', icon: BarChart3, label: 'Analitik' },
     { href: '/store/reviews', icon: Star, label: 'Ulasan' },
-    { href: '/store/notifications', icon: Bell, label: 'Notifikasi', badge: unreadNotifsCount > 0 ? unreadNotifsCount : undefined },
     { href: '/store/settings', icon: Settings, label: 'Pengaturan' },
   ]
 
@@ -92,19 +129,20 @@ export default function StoreLayout({ children }: StoreLayoutProps) {
   const pageTitle = pathname?.split('/').filter(Boolean).pop() ?? 'dashboard'
   const titleMap: Record<string, string> = {
     dashboard: 'Dashboard', products: 'Produk', orders: 'Pesanan',
-    analytics: 'Analitik', reviews: 'Ulasan', notifications: 'Notifikasi', settings: 'Pengaturan',
+    analytics: 'Analitik', reviews: 'Ulasan',
+    settings: 'Pengaturan', chat: 'Pesan Masuk', create: 'Tambah Produk',
+    edit: 'Edit Produk',
   }
-  const displayTitle = titleMap[pageTitle] ?? pageTitle
 
-  // title map
-  const titleMapFull: Record<string, string> = {
-    dashboard: 'Dashboard', products: 'Produk', orders: 'Pesanan',
-    analytics: 'Analitik', reviews: 'Ulasan', notifications: 'Notifikasi',
-    settings: 'Pengaturan', chat: 'Pesan Masuk',
-  }
+  // Find title from path segments (skip UUIDs)
+  const pathSegments = pathname?.split('/').filter(Boolean) ?? []
+  const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+  const meaningfulSegments = pathSegments.filter(s => !UUID_REGEX.test(s))
+  const lastSegment = meaningfulSegments[meaningfulSegments.length - 1] ?? 'dashboard'
+  const displayTitle = titleMap[lastSegment] ?? lastSegment.charAt(0).toUpperCase() + lastSegment.slice(1)
 
   return (
-    <div className="flex h-screen max-h-screen overflow-hidden bg-[#F3F6F8] text-[#080C1A] font-sans">
+    <div className="flex h-screen max-h-screen overflow-hidden bg-cream-bg text-dark font-sans">
       {/* Mobile Overlay */}
       {sidebarOpen && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-40 lg:hidden" onClick={() => setSidebarOpen(false)} />
@@ -175,23 +213,17 @@ export default function StoreLayout({ children }: StoreLayoutProps) {
         <header className="flex items-center justify-between w-full h-[90px] shrink-0 bg-white/80 backdrop-blur-lg border-b border-[#E5E7EB] px-5 md:px-8 z-30 sticky top-0">
           <div className="flex items-center gap-4">
             <button onClick={() => setSidebarOpen(true)} className="lg:hidden size-11 flex items-center justify-center rounded-xl bg-white ring-1 ring-[#E5E7EB] hover:ring-[#0F766E] transition-all duration-300 cursor-pointer shadow-sm">
-              <Menu className="size-5 text-[#080C1A]" />
+              <Menu className="size-5 text-dark" />
             </button>
             <div className="hidden sm:block">
               <h2 className="font-bold text-xl md:text-2xl">{displayTitle}</h2>
-              <p className="text-xs text-[#6A7686]">Kelola toko dan pantau pesanan Anda.</p>
+              <p className="text-xs text-[#6A7686]">Halo, <span className="font-semibold text-[#0F766E]">{storeName}</span> — Selamat datang di dashboard mitra.</p>
             </div>
           </div>
           <div className="flex items-center gap-3">
             <button onClick={() => setSearchOpen(true)} className="size-11 flex items-center justify-center rounded-xl bg-white ring-1 ring-[#E5E7EB] hover:ring-[#0F766E] transition-all duration-300 cursor-pointer shadow-sm">
               <Search className="size-5 text-[#6A7686]" />
             </button>
-            <Link href="/store/notifications" className="size-11 flex items-center justify-center rounded-xl bg-white ring-1 ring-[#E5E7EB] hover:ring-[#0F766E] transition-all duration-300 cursor-pointer shadow-sm relative">
-              <Bell className="size-5 text-[#6A7686]" />
-              {unreadNotifsCount > 0 && (
-                <span className="absolute top-2 right-2.5 size-2 rounded-full bg-[#FF8A00] ring-2 ring-white" />
-              )}
-            </Link>
           </div>
         </header>
 
@@ -225,7 +257,7 @@ export default function StoreLayout({ children }: StoreLayoutProps) {
             <div className="p-4 border-b border-[#E5E7EB]">
               <div className="flex items-center gap-3 bg-[#F3F6F8] rounded-2xl px-4 ring-1 ring-transparent focus-within:ring-[#0F766E] transition-all">
                 <Search className="size-5 text-[#6A7686] shrink-0" />
-                <input ref={searchInputRef} type="text" placeholder="Cari produk, pesanan..." className="flex-1 py-4 bg-transparent outline-none text-[#080C1A] font-medium placeholder:text-[#6A7686]" />
+                <input ref={searchInputRef} type="text" placeholder="Cari produk, pesanan..." className="flex-1 py-4 bg-transparent outline-none text-dark font-medium placeholder:text-[#6A7686]" />
                 <kbd className="hidden sm:inline-flex items-center gap-1 px-2 py-1 bg-white rounded-lg text-[10px] font-bold text-[#6A7686] border border-[#E5E7EB] shadow-sm">ESC</kbd>
               </div>
             </div>

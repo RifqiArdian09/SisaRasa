@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useEffect, useState } from 'react'
+import React, { Suspense, useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { MessageCircle, Store, Clock, Loader2 } from 'lucide-react'
 import Link from 'next/link'
@@ -16,6 +16,19 @@ interface Conversation {
 }
 
 export default function ChatListPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-full bg-cream-bg flex flex-col items-center justify-center gap-3">
+        <Loader2 className="w-8 h-8 text-primary-teal animate-spin" />
+        <p className="text-sm text-dark/50 font-semibold">Memuat percakapan...</p>
+      </div>
+    }>
+      <ChatListContent />
+    </Suspense>
+  )
+}
+
+function ChatListContent() {
   const supabase = createClient()
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -26,11 +39,26 @@ export default function ChatListPage() {
   const [loading, setLoading] = useState(true)
   const [redirecting, setRedirecting] = useState(!!storeParam)
 
+  const fetchConvs = async (uid: string) => {
+    const { data, error } = await supabase
+      .from('conversations')
+      .select(`
+        id, store_id, customer_id,
+        stores ( store_name, logo_url ),
+        messages ( message, created_at, is_read, sender_id )
+      `)
+      .eq('customer_id', uid)
+      .order('id', { ascending: false })
+    if (!error) setConvs((data || []) as any)
+  }
+
   useEffect(() => {
+    let uid = ''
     const init = async () => {
       try {
         const { data: { user } } = await supabase.auth.getUser()
         if (!user) { router.push('/login'); return }
+        uid = user.id
         setUserId(user.id)
 
         // If ?store= param exists, find or create conversation then redirect
@@ -42,53 +70,44 @@ export default function ChatListPage() {
             .eq('store_id', storeParam)
             .maybeSingle()
 
-          if (existing) {
-            router.replace(`/chat/${existing.id}`)
-            return
-          }
+          if (existing) { router.replace(`/chat/${existing.id}`); return }
 
-          // Create new conversation
           const { data: newConv, error } = await supabase
             .from('conversations')
             .insert({ customer_id: user.id, store_id: storeParam })
             .select('id')
             .single()
 
-          if (error) {
-            toast.error('Gagal membuat percakapan baru.')
-            setRedirecting(false)
-          } else {
-            router.replace(`/chat/${newConv.id}`)
-            return
-          }
+          if (error) { toast.error('Gagal membuat percakapan baru.'); setRedirecting(false) }
+          else { router.replace(`/chat/${newConv.id}`); return }
         }
 
-        // Load conversation list
-        const { data, error } = await supabase
-          .from('conversations')
-          .select(`
-            id, store_id, customer_id,
-            stores ( store_name, logo_url ),
-            messages ( message, created_at, is_read, sender_id )
-          `)
-          .eq('customer_id', user.id)
-          .order('id', { ascending: false })
-
-        if (error) throw error
-        setConvs((data || []) as any)
+        await fetchConvs(user.id)
       } catch (err: any) {
-        console.error('Chat error:', err)
         toast.error(`Gagal memuat percakapan: ${err?.message || 'Unknown error'}`)
       } finally {
         setLoading(false)
       }
     }
     init()
+
+    // Realtime: refresh list when any new message arrives
+    const channel = supabase
+      .channel('customer-chat-list-realtime')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'messages' }, () => {
+        if (uid) fetchConvs(uid)
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'conversations' }, () => {
+        if (uid) fetchConvs(uid)
+      })
+      .subscribe()
+
+    return () => { supabase.removeChannel(channel) }
   }, [supabase, storeParam, router])
 
   if (redirecting) {
     return (
-      <div className="min-h-full bg-[#F8FAFC] flex flex-col items-center justify-center gap-3">
+      <div className="min-h-full bg-cream-bg flex flex-col items-center justify-center gap-3">
         <Loader2 className="w-8 h-8 text-primary-teal animate-spin" />
         <p className="text-sm text-dark/50 font-semibold">Membuka percakapan...</p>
       </div>

@@ -13,7 +13,23 @@ ALTER TABLE public.conversations ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.messages ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.notifications ENABLE ROW LEVEL SECURITY;
 
+-- HELPER: admin check (SECURITY DEFINER bypasses RLS, no recursion)
+CREATE OR REPLACE FUNCTION public.is_admin()
+RETURNS boolean
+LANGUAGE sql
+SECURITY DEFINER
+STABLE
+AS $$
+  SELECT EXISTS (
+    SELECT 1 FROM public.users
+    WHERE id = auth.uid() AND role = 'admin'
+  );
+$$;
+
 -- USERS
+CREATE POLICY "Admins can view all users" ON public.users FOR SELECT USING (public.is_admin());
+CREATE POLICY "Admins can update all users" ON public.users FOR UPDATE USING (public.is_admin());
+CREATE POLICY "Admins can delete users" ON public.users FOR DELETE USING (public.is_admin());
 CREATE POLICY "Users can view their own profile" ON public.users FOR SELECT USING (auth.uid() = id);
 CREATE POLICY "Public can view stores profile" ON public.users FOR SELECT USING (role = 'store');
 CREATE POLICY "Users can update their own profile" ON public.users FOR UPDATE USING (auth.uid() = id);
@@ -30,23 +46,23 @@ CREATE POLICY "Store owners can view their customers profile" ON public.users FO
 CREATE POLICY "Stores are viewable by everyone" ON public.stores FOR SELECT USING (true);
 CREATE POLICY "Store owners can insert their store" ON public.stores FOR INSERT WITH CHECK (auth.uid() = user_id);
 CREATE POLICY "Store owners and admins can update stores" ON public.stores FOR UPDATE USING (
-  auth.uid() = user_id OR 
-  EXISTS (SELECT 1 FROM public.users WHERE users.id = auth.uid() AND users.role = 'admin')
+  auth.uid() = user_id OR public.is_admin()
 );
+CREATE POLICY "Admins can delete stores" ON public.stores FOR DELETE USING (public.is_admin());
 
 -- CATEGORIES
 CREATE POLICY "Categories are viewable by everyone" ON public.categories FOR SELECT USING (true);
-CREATE POLICY "Admins can manage categories" ON public.categories USING (
-  EXISTS (SELECT 1 FROM public.users WHERE users.id = auth.uid() AND users.role = 'admin')
-);
+CREATE POLICY "Admins can manage categories" ON public.categories USING (public.is_admin());
 
 -- PRODUCTS
+CREATE POLICY "Admins can manage all products" ON public.products USING (public.is_admin());
 CREATE POLICY "Products are viewable by everyone" ON public.products FOR SELECT USING (true);
 CREATE POLICY "Store owners can manage their products" ON public.products USING (
   EXISTS (SELECT 1 FROM public.stores WHERE stores.id = products.store_id AND stores.user_id = auth.uid())
 );
 
 -- PRODUCT IMAGES
+CREATE POLICY "Admins can manage all product images" ON public.product_images USING (public.is_admin());
 CREATE POLICY "Product images are viewable by everyone" ON public.product_images FOR SELECT USING (true);
 CREATE POLICY "Store owners can manage their product images" ON public.product_images USING (
   EXISTS (SELECT 1 FROM public.products 
@@ -55,6 +71,7 @@ CREATE POLICY "Store owners can manage their product images" ON public.product_i
 );
 
 -- ORDERS
+CREATE POLICY "Admins can view all orders" ON public.orders FOR SELECT USING (public.is_admin());
 CREATE POLICY "Customers can view their own orders" ON public.orders FOR SELECT USING (auth.uid() = customer_id);
 CREATE POLICY "Store owners can view their store orders" ON public.orders FOR SELECT USING (
   EXISTS (SELECT 1 FROM public.stores WHERE stores.id = orders.store_id AND stores.user_id = auth.uid())
@@ -68,11 +85,15 @@ CREATE POLICY "Customers can cancel their pending orders" ON public.orders FOR U
 );
 
 -- ORDER ITEMS
+CREATE POLICY "Admins can view all order items" ON public.order_items FOR SELECT USING (public.is_admin());
 CREATE POLICY "Customers can view their order items" ON public.order_items FOR SELECT USING (
   EXISTS (SELECT 1 FROM public.orders WHERE orders.id = order_items.order_id AND orders.customer_id = auth.uid())
 );
 CREATE POLICY "Store owners can view their order items" ON public.order_items FOR SELECT USING (
   EXISTS (SELECT 1 FROM public.orders JOIN public.stores ON orders.store_id = stores.id WHERE orders.id = order_items.order_id AND stores.user_id = auth.uid())
+);
+CREATE POLICY "Customers can insert order items" ON public.order_items FOR INSERT WITH CHECK (
+  EXISTS (SELECT 1 FROM public.orders WHERE orders.id = order_items.order_id AND orders.customer_id = auth.uid())
 );
 CREATE POLICY "Customers can insert order items" ON public.order_items FOR INSERT WITH CHECK (
   EXISTS (SELECT 1 FROM public.orders WHERE orders.id = order_items.order_id AND orders.customer_id = auth.uid())
@@ -83,18 +104,21 @@ CREATE POLICY "Users can view their favorites" ON public.favorites FOR SELECT US
 CREATE POLICY "Users can manage their favorites" ON public.favorites FOR ALL USING (auth.uid() = customer_id);
 
 -- REVIEWS
+CREATE POLICY "Admins can manage all reviews" ON public.reviews USING (public.is_admin());
 CREATE POLICY "Reviews are viewable by everyone" ON public.reviews FOR SELECT USING (true);
 CREATE POLICY "Customers can insert reviews" ON public.reviews FOR INSERT WITH CHECK (auth.uid() = customer_id);
 CREATE POLICY "Customers can update their reviews" ON public.reviews FOR UPDATE USING (auth.uid() = customer_id);
 CREATE POLICY "Customers can delete their reviews" ON public.reviews FOR DELETE USING (auth.uid() = customer_id);
 
 -- REVIEW REPLIES
+CREATE POLICY "Admins can manage all review replies" ON public.review_replies USING (public.is_admin());
 CREATE POLICY "Review replies are viewable by everyone" ON public.review_replies FOR SELECT USING (true);
 CREATE POLICY "Store owners can manage review replies" ON public.review_replies USING (
   EXISTS (SELECT 1 FROM public.stores WHERE stores.id = review_replies.store_id AND stores.user_id = auth.uid())
 );
 
 -- CONVERSATIONS
+CREATE POLICY "Admins can view all conversations" ON public.conversations FOR SELECT USING (public.is_admin());
 CREATE POLICY "Users can view their conversations" ON public.conversations FOR SELECT USING (
   auth.uid() = customer_id OR 
   EXISTS (SELECT 1 FROM public.stores WHERE stores.id = conversations.store_id AND stores.user_id = auth.uid())
@@ -105,6 +129,7 @@ CREATE POLICY "Users can create conversations" ON public.conversations FOR INSER
 );
 
 -- MESSAGES
+CREATE POLICY "Admins can view all messages" ON public.messages FOR SELECT USING (public.is_admin());
 CREATE POLICY "Users can view messages in their conversations" ON public.messages FOR SELECT USING (
   EXISTS (
     SELECT 1 FROM public.conversations c 
@@ -135,6 +160,7 @@ CREATE POLICY "Users can mark messages as read" ON public.messages FOR UPDATE US
 );
 
 -- NOTIFICATIONS
+CREATE POLICY "Admins can view all notifications" ON public.notifications FOR SELECT USING (public.is_admin());
 CREATE POLICY "Users can view their notifications" ON public.notifications FOR SELECT USING (auth.uid() = user_id);
 CREATE POLICY "Users can update their notifications" ON public.notifications FOR UPDATE USING (auth.uid() = user_id);
 

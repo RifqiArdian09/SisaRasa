@@ -1,22 +1,9 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Search, Star, Flag, CheckCircle, MoreHorizontal, Loader2 } from 'lucide-react'
+import { Search, Star, Flag, CheckCircle, Trash2, Loader2 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { toast } from 'react-hot-toast'
-
-interface ReviewItem {
-  id: string
-  customer: string
-  initials: string
-  color: string
-  product: string
-  store: string
-  rating: number
-  comment: string
-  date: string
-  flagged: boolean
-}
 
 const AVATAR_COLORS = [
   'bg-teal-100 text-teal-700', 'bg-orange-100 text-orange-700',
@@ -27,7 +14,7 @@ const AVATAR_COLORS = [
 function StarRating({ rating }: { rating: number }) {
   return (
     <div className="flex items-center gap-0.5">
-      {[1,2,3,4,5].map(i => (
+      {[1, 2, 3, 4, 5].map(i => (
         <Star key={i} className={`size-3.5 ${i <= rating ? 'fill-amber-400 text-amber-400' : 'text-[#E5E7EB]'}`} />
       ))}
     </div>
@@ -35,10 +22,12 @@ function StarRating({ rating }: { rating: number }) {
 }
 
 export default function AdminReviewsPage() {
-  const [reviews, setReviews] = useState<ReviewItem[]>([])
+  const [reviews, setReviews] = useState<any[]>([])
   const [search, setSearch] = useState('')
   const [filter, setFilter] = useState<'all' | 'flagged'>('all')
   const [isLoading, setIsLoading] = useState(true)
+  const [approvedIds, setApprovedIds] = useState<Set<string>>(new Set())
+  const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null)
 
   const supabase = createClient()
 
@@ -60,13 +49,10 @@ export default function AdminReviewsPage() {
 
       if (error) throw error
 
-      const formatted: ReviewItem[] = (data || []).map((r: any, idx: number) => {
+      const formatted = (data || []).map((r: any, idx: number) => {
         const customerName = r.users?.name || 'Anonim'
         const initials = customerName.split(' ').map((n: string) => n[0]).join('').substring(0, 2).toUpperCase()
-        // Determine "flagged" status dynamically since it doesn't exist in DB (e.g. rating 1 or 2 stars)
         const isFlagged = r.rating <= 2
-        const dateStr = new Date(r.created_at).toLocaleDateString('id-ID', { year: 'numeric', month: 'short', day: 'numeric' })
-        
         return {
           id: r.id,
           customer: customerName,
@@ -76,7 +62,7 @@ export default function AdminReviewsPage() {
           store: r.products?.stores?.store_name || 'Unknown Store',
           rating: r.rating,
           comment: r.comment || '',
-          date: dateStr,
+          date: new Date(r.created_at).toLocaleDateString('id-ID', { year: 'numeric', month: 'short', day: 'numeric' }),
           flagged: isFlagged
         }
       })
@@ -90,10 +76,8 @@ export default function AdminReviewsPage() {
   }
 
   const handleApprove = (id: string) => {
-    // Just hide the flag locally since we use rating logic for flags. 
-    // In a real app, you'd update an 'is_approved' boolean in DB.
-    setReviews(prev => prev.map(r => r.id === id ? { ...r, flagged: false } : r))
-    toast.success('Review disetujui (simulasi)')
+    setApprovedIds(prev => new Set(prev).add(id))
+    toast.success('Review diabaikan')
   }
 
   const handleDelete = async (id: string) => {
@@ -101,15 +85,18 @@ export default function AdminReviewsPage() {
       const { error } = await supabase.from('reviews').delete().eq('id', id)
       if (error) throw error
       setReviews(prev => prev.filter(r => r.id !== id))
-      toast.success('Review berhasil dihapus.')
+      toast.success('Review berhasil dihapus')
     } catch (error: any) {
       toast.error('Gagal menghapus review: ' + error.message)
+    } finally {
+      setDeleteConfirm(null)
     }
   }
 
   const filtered = reviews.filter(r => {
     const matchSearch = r.product.toLowerCase().includes(search.toLowerCase()) || r.customer.toLowerCase().includes(search.toLowerCase())
-    return matchSearch && (filter === 'all' || r.flagged)
+    const isFlagged = r.flagged && !approvedIds.has(r.id)
+    return matchSearch && (filter === 'all' || isFlagged)
   })
 
   return (
@@ -120,13 +107,13 @@ export default function AdminReviewsPage() {
           <p className="text-sm text-[#6A7686] mt-0.5">Pantau dan moderasi ulasan dari customer</p>
         </div>
         <span className="px-3 py-1.5 rounded-full bg-red-50 text-red-600 text-sm font-bold self-start">
-          {reviews.filter(r => r.flagged).length} Memerlukan Perhatian
+          {reviews.filter(r => r.flagged && !approvedIds.has(r.id)).length} Perlu Perhatian
         </span>
       </div>
 
       <div className="flex flex-col sm:flex-row gap-3 mb-6">
         <div className="flex gap-1 bg-white rounded-2xl p-1.5 ring-1 ring-[#E5E7EB] shadow-sm">
-          {[{ key: 'all', label: 'Semua' }, { key: 'flagged', label: '🚩 Dilaporkan' }].map(t => (
+          {[{ key: 'all', label: 'Semua' }, { key: 'flagged', label: 'Dilaporkan' }].map(t => (
             <button key={t.key} onClick={() => setFilter(t.key as 'all' | 'flagged')}
               className={`px-4 py-2 rounded-xl text-sm font-semibold transition-all ${filter === t.key ? 'bg-[#0F766E] text-white' : 'text-[#6A7686] hover:bg-[#F3F6F8]'}`}>
               {t.label}
@@ -151,40 +138,56 @@ export default function AdminReviewsPage() {
             <Star className="size-10 mx-auto mb-3 text-[#E5E7EB]" />
             <p className="font-semibold text-[#6A7686]">Tidak ada ulasan ditemukan</p>
           </div>
-        ) : filtered.map(review => (
-          <div key={review.id} className={`rounded-3xl ring-1 p-6 bg-white shadow-sm ${review.flagged ? 'ring-red-200 bg-red-50/30' : 'ring-[#E5E7EB]'}`}>
-            <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
-              <div className="flex items-start gap-4 flex-1">
-                <div className={`size-11 rounded-full flex items-center justify-center font-bold text-sm shrink-0 ${review.color}`}>{review.initials}</div>
-                <div className="flex-1">
-                  <div className="flex items-center gap-2 mb-1 flex-wrap">
-                    <span className="font-bold text-sm">{review.customer}</span>
-                    <StarRating rating={review.rating} />
-                    {review.flagged && <span className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-red-100 text-red-600 text-[10px] font-bold"><Flag className="size-2.5" /> Rating Rendah</span>}
+        ) : filtered.map(review => {
+          const isFlagged = review.flagged && !approvedIds.has(review.id)
+          return (
+            <div key={review.id} className={`rounded-3xl ring-1 p-6 bg-white shadow-sm ${isFlagged ? 'ring-red-200 bg-red-50/30' : 'ring-[#E5E7EB]'}`}>
+              <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
+                <div className="flex items-start gap-4 flex-1">
+                  <div className={`size-11 rounded-full flex items-center justify-center font-bold text-sm shrink-0 ${review.color}`}>{review.initials}</div>
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2 mb-1 flex-wrap">
+                      <span className="font-bold text-sm">{review.customer}</span>
+                      <StarRating rating={review.rating} />
+                      {isFlagged && <span className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-red-100 text-red-600 text-[10px] font-bold"><Flag className="size-2.5" /> Rating Rendah</span>}
+                    </div>
+                    <p className="text-xs text-[#6A7686] mb-2"><strong>{review.product}</strong> · {review.store} · {review.date}</p>
+                    <p className="text-sm leading-relaxed">&quot;{review.comment}&quot;</p>
                   </div>
-                  <p className="text-xs text-[#6A7686] mb-2"><strong>{review.product}</strong> · {review.store} · {review.date}</p>
-                  <p className="text-sm leading-relaxed">&quot;{review.comment}&quot;</p>
+                </div>
+                <div className="flex items-center gap-2 shrink-0">
+                  {isFlagged && (
+                    <button onClick={() => handleApprove(review.id)}
+                      className="flex items-center gap-1.5 px-3 py-2 bg-emerald-50 text-emerald-700 rounded-xl text-xs font-bold hover:bg-emerald-500 hover:text-white transition-all">
+                      <CheckCircle className="size-3.5" /> Abaikan
+                    </button>
+                  )}
+                  <button onClick={() => setDeleteConfirm(review.id)}
+                    className="flex items-center gap-1.5 px-3 py-2 bg-red-50 text-red-600 rounded-xl text-xs font-bold hover:bg-red-500 hover:text-white transition-all">
+                    <Trash2 className="size-3.5" /> Hapus
+                  </button>
                 </div>
               </div>
-              <div className="flex items-center gap-2 shrink-0">
-                {review.flagged && (
-                  <button onClick={() => handleApprove(review.id)}
-                    className="flex items-center gap-1.5 px-3 py-2 bg-emerald-50 text-emerald-700 rounded-xl text-xs font-bold hover:bg-emerald-500 hover:text-white transition-all">
-                    <CheckCircle className="size-3.5" /> Abaikan
-                  </button>
-                )}
-                <button onClick={() => handleDelete(review.id)}
-                  className="flex items-center gap-1.5 px-3 py-2 bg-red-50 text-red-600 rounded-xl text-xs font-bold hover:bg-red-500 hover:text-white transition-all">
-                  <Flag className="size-3.5" /> Hapus
-                </button>
-                <button className="size-8 flex items-center justify-center rounded-xl ring-1 ring-[#E5E7EB] hover:ring-[#0F766E] transition-all">
-                  <MoreHorizontal className="size-4 text-[#6A7686]" />
-                </button>
-              </div>
+            </div>
+          )
+        })}
+      </div>
+
+      {deleteConfirm && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl p-6 max-w-sm w-full shadow-2xl">
+            <div className="w-16 h-16 rounded-full bg-red-50 flex items-center justify-center mx-auto mb-4">
+              <Trash2 className="w-8 h-8 text-red-500" />
+            </div>
+            <h3 className="text-xl font-bold mb-2 text-center">Hapus Review</h3>
+            <p className="text-[#6A7686] text-sm mb-6 text-center">Apakah kamu yakin ingin menghapus review ini?</p>
+            <div className="flex gap-3">
+              <button onClick={() => setDeleteConfirm(null)} className="flex-1 px-4 py-3 rounded-full ring-1 ring-[#E5E7EB] font-bold hover:bg-[#F3F6F8] transition-all">Batal</button>
+              <button onClick={() => handleDelete(deleteConfirm)} className="flex-1 px-4 py-3 rounded-full bg-red-500 text-white font-bold hover:bg-red-600 transition-all">Ya, Hapus</button>
             </div>
           </div>
-        ))}
-      </div>
+        </div>
+      )}
     </div>
   )
 }

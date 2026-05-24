@@ -4,21 +4,12 @@ import React, { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { 
   Star, 
-  MessageSquare, 
-  Send, 
   MessageCircle, 
-  Trash2,
   User,
   Sparkles
 } from 'lucide-react'
 import { toast } from 'sonner'
 import Image from 'next/image'
-
-interface ReviewReply {
-  id: string
-  reply: string
-  created_at: string
-}
 
 interface Review {
   id: string
@@ -34,16 +25,12 @@ interface Review {
     name: string
     avatar_url: string
   }
-  review_replies?: ReviewReply | null
 }
 
 export default function MerchantReviewsPage() {
   const supabase = createClient()
   const [reviews, setReviews] = useState<Review[]>([])
   const [loading, setLoading] = useState(true)
-  const [storeId, setStoreId] = useState('')
-  const [replyText, setReplyText] = useState<Record<string, string>>({})
-  const [submittingReply, setSubmittingReply] = useState<Record<string, boolean>>({})
 
   const fetchReviews = async () => {
     try {
@@ -57,7 +44,6 @@ export default function MerchantReviewsPage() {
         .single()
 
       if (!store) return
-      setStoreId(store.id)
 
       // Fetch reviews belonging to the store's products
       // We can do this by selecting reviews and filtering by product's store_id
@@ -78,28 +64,13 @@ export default function MerchantReviewsPage() {
           users (
             name,
             avatar_url
-          ),
-          review_replies (
-            id,
-            reply,
-            created_at
           )
         `)
         .eq('products.store_id', store.id)
         .order('created_at', { ascending: false })
 
       if (error) throw error
-
-      // Flatten nested review replies array into single object since it has UNIQUE(review_id)
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const formatted = (revs || []).map((r: any) => ({
-        ...r,
-        review_replies: Array.isArray(r.review_replies) 
-          ? r.review_replies[0] || null 
-          : r.review_replies || null
-      })) as unknown as Review[]
-
-      setReviews(formatted)
+      setReviews((revs || []) as unknown as Review[])
     } catch (err) {
       toast.error('Gagal memuat ulasan pelanggan.')
     } finally {
@@ -111,61 +82,6 @@ export default function MerchantReviewsPage() {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchReviews()
   }, [])
-
-  const handlePostReply = async (reviewId: string) => {
-    const text = replyText[reviewId]?.trim()
-    if (!text) {
-      toast.error('Harap ketik balasan ulasan terlebih dahulu!')
-      return
-    }
-
-    setSubmittingReply(prev => ({ ...prev, [reviewId]: true }))
-    try {
-      const { data, error } = await supabase
-        .from('review_replies')
-        .insert({
-          review_id: reviewId,
-          store_id: storeId,
-          reply: text
-        })
-        .select()
-        .single()
-
-      if (error) throw error
-
-      toast.success('Balasan berhasil diposting.')
-      setReplyText(prev => ({ ...prev, [reviewId]: '' }))
-      
-      // Update local reviews list state
-      setReviews(prev => 
-        prev.map(r => r.id === reviewId ? { ...r, review_replies: data } : r)
-      )
-    } catch (err) {
-      toast.error('Gagal mengirim balasan ulasan.')
-    } finally {
-      setSubmittingReply(prev => ({ ...prev, [reviewId]: false }))
-    }
-  }
-
-  const handleDeleteReply = async (replyId: string, reviewId: string) => {
-    if (!confirm('Apakah Anda yakin ingin menghapus balasan ini?')) return
-
-    try {
-      const { error } = await supabase
-        .from('review_replies')
-        .delete()
-        .eq('id', replyId)
-
-      if (error) throw error
-
-      toast.success('Balasan ulasan berhasil dihapus.')
-      setReviews(prev => 
-        prev.map(r => r.id === reviewId ? { ...r, review_replies: null } : r)
-      )
-    } catch (err) {
-      toast.error('Gagal menghapus balasan.')
-    }
-  }
 
   const renderStars = (rating: number) => {
     return Array.from({ length: 5 }).map((_, idx) => (
@@ -270,50 +186,7 @@ export default function MerchantReviewsPage() {
                 )}
               </div>
 
-              {/* Replies Section */}
-              <div className="pl-13 border-t border-dark/5 pt-4 mt-2">
-                {review.review_replies ? (
-                  /* Existing Reply Panel */
-                  <div className="bg-cream-bg/60 border border-dark/5 rounded-xl p-4 space-y-2 relative group">
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs font-extrabold text-primary-teal uppercase tracking-wider">
-                        Balasan Toko Anda
-                      </span>
-                      <button
-                        onClick={() => handleDeleteReply(review.review_replies!.id, review.id)}
-                        className="opacity-0 group-hover:opacity-100 transition-opacity p-1 text-red-600 hover:bg-red-50 rounded-lg"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
-                    </div>
-                    <p className="text-xs text-dark/80 leading-relaxed">
-                      {review.review_replies.reply}
-                    </p>
-                    <span className="text-[9px] text-dark/30 block text-right font-medium">
-                      {new Date(review.review_replies.created_at).toLocaleDateString('id-ID', { dateStyle: 'short' })}
-                    </span>
-                  </div>
-                ) : (
-                  /* Reply Input field */
-                  <div className="flex gap-2 items-center">
-                    <input
-                      type="text"
-                      placeholder="Tulis balasan terima kasih atau penjelasan kepada pembeli..."
-                      value={replyText[review.id] || ''}
-                      onChange={(e) => setReplyText(prev => ({ ...prev, [review.id]: e.target.value }))}
-                      className="flex-1 px-4 py-2 rounded-xl border border-dark/10 bg-white text-xs text-dark placeholder-dark/35 focus:border-primary-orange focus:ring-1 focus:ring-primary-orange/20 transition-all outline-none"
-                    />
-                    <button
-                      onClick={() => handlePostReply(review.id)}
-                      disabled={submittingReply[review.id]}
-                      className="py-2 px-4 rounded-xl bg-primary-teal text-white text-xs font-bold shadow-sm hover:opacity-90 transition-all flex items-center gap-1.5 shrink-0"
-                    >
-                      <Send className="w-3.5 h-3.5" />
-                      Kirim
-                    </button>
-                  </div>
-                )}
-              </div>
+
             </div>
           ))}
         </div>

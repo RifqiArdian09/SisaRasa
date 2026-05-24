@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Save, User, Shield, Loader2, Camera, Mail, Phone, Lock } from 'lucide-react'
+import { Save, User, Shield, Loader2, Camera, Mail, Lock } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { toast } from 'react-hot-toast'
 import Image from 'next/image'
@@ -14,7 +14,6 @@ export default function AdminSettingsPage() {
   const [formData, setFormData] = useState({
     name: '',
     email: '',
-    phone: '',
     avatar_url: ''
   })
   
@@ -36,7 +35,7 @@ export default function AdminSettingsPage() {
       // If user is not logged in (e.g., viewing without proper auth flow), we handle gracefully
       if (authError || !authUser) {
         toast.error('Anda belum login.')
-        setIsLoading(false)
+        setLoading(false)
         return
       }
 
@@ -52,7 +51,6 @@ export default function AdminSettingsPage() {
       setFormData({
         name: userData.name || '',
         email: userData.email || authUser.email || '',
-        phone: userData.phone || '',
         avatar_url: userData.avatar_url || ''
       })
     } catch (error: any) {
@@ -72,7 +70,6 @@ export default function AdminSettingsPage() {
         .from('users')
         .update({
           name: formData.name,
-          phone: formData.phone,
           updated_at: new Date().toISOString()
         })
         .eq('id', user.id)
@@ -203,31 +200,16 @@ export default function AdminSettingsPage() {
                 />
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-semibold mb-2">Email (Hanya Baca)</label>
-                  <div className="relative">
-                    <Mail className="absolute left-4 top-1/2 -translate-y-1/2 size-4 text-[#6A7686]" />
-                    <input 
-                      type="email" 
-                      value={formData.email}
-                      disabled
-                      className="w-full pl-11 pr-4 py-3 bg-[#E5E7EB]/30 text-[#6A7686] rounded-2xl ring-1 ring-[#E5E7EB] outline-none cursor-not-allowed"
-                    />
-                  </div>
-                </div>
-                <div>
-                  <label className="block text-sm font-semibold mb-2">Nomor HP</label>
-                  <div className="relative">
-                    <Phone className="absolute left-4 top-1/2 -translate-y-1/2 size-4 text-[#6A7686]" />
-                    <input 
-                      type="tel" 
-                      value={formData.phone}
-                      onChange={(e) => setFormData({...formData, phone: e.target.value})}
-                      placeholder="0812xxxxxx"
-                      className="w-full pl-11 pr-4 py-3 bg-[#F8FAFC] rounded-2xl ring-1 ring-[#E5E7EB] outline-none focus:ring-[#0F766E] transition-all"
-                    />
-                  </div>
+              <div>
+                <label className="block text-sm font-semibold mb-2">Email (Hanya Baca)</label>
+                <div className="relative">
+                  <Mail className="absolute left-4 top-1/2 -translate-y-1/2 size-4 text-[#6A7686]" />
+                  <input 
+                    type="email" 
+                    value={formData.email}
+                    disabled
+                    className="w-full pl-11 pr-4 py-3 bg-[#E5E7EB]/30 text-[#6A7686] rounded-2xl ring-1 ring-[#E5E7EB] outline-none cursor-not-allowed"
+                  />
                 </div>
               </div>
 

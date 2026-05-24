@@ -84,7 +84,9 @@ export default function LeafletMap({
       })
 
       mapInstanceRef.current = map
-      setTimeout(() => map.invalidateSize(), 300)
+      map.whenReady(() => {
+        if (!destroyed) map.invalidateSize()
+      })
     }
 
     initMap()

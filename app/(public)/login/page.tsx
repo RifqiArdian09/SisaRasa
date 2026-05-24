@@ -4,6 +4,7 @@ import React, { useState } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
+import { Eye, EyeOff, Leaf, ArrowRight } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { toast } from 'sonner'
 
@@ -29,7 +30,6 @@ export default function LoginPage() {
 
       toast.success('Login berhasil! Selamat datang kembali.')
 
-      // Ambil role untuk redirect yang tepat
       const { data: profile } = await supabase
         .from('users')
         .select('role')
@@ -37,14 +37,15 @@ export default function LoginPage() {
         .single()
 
       if (!profile) {
-        // Buat profile default jika belum ada
+        const adminEmail = process.env.NEXT_PUBLIC_ADMIN_EMAIL
+        const defaultRole = (adminEmail && data.user.email === adminEmail) ? 'admin' : 'customer'
         await supabase.from('users').insert({
           id: data.user.id,
           name: data.user.user_metadata?.name || 'Pengguna SisaRasa',
           email: data.user.email!,
-          role: 'customer',
+          role: defaultRole,
         })
-        router.push('/dashboard')
+        router.push(defaultRole === 'admin' ? '/admin/dashboard' : '/dashboard')
       } else if (profile.role === 'store') {
         router.push('/store/dashboard')
       } else if (profile.role === 'admin') {
@@ -52,7 +53,6 @@ export default function LoginPage() {
       } else {
         router.push('/dashboard')
       }
-      router.refresh()
     } catch (error: unknown) {
       const errMsg = error instanceof Error ? error.message : 'Email atau kata sandi salah.'
       toast.error(errMsg)
@@ -75,79 +75,61 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="flex min-h-screen bg-cream-bg font-sans">
+    <div className="flex min-h-screen bg-white font-sans">
 
-      {/* ── KIRI: Gambar + Logo + Brand ─────────────────────── */}
-      <div className="relative hidden w-1/2 overflow-hidden lg:flex flex-col">
-        {/* Background Image */}
-        <div className="absolute inset-0 z-0">
-          <Image
-            src="/images/bg.png"
-            alt="SisaRasa Food Rescue"
-            fill
-            sizes="50vw"
-            priority
-            loading="eager"
-            className="object-cover brightness-70 transition-all duration-700 hover:scale-105"
-          />
-          <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-black/20" />
-        </div>
-
-        {/* Logo + Brand di kiri atas */}
+      {/* ── KIRI: Brand Panel ── */}
+      <div className="relative hidden w-1/2 overflow-hidden lg:flex flex-col bg-gradient-to-br from-[#2E7D32]/5 via-[#EBF7F5] to-white">
         <div className="relative z-10 flex items-center gap-3 p-10">
-          <div className="relative w-10 h-10 bg-white rounded-xl shadow-lg overflow-hidden">
-            <Image
-              src="/images/logo.png"
-              alt="SisaRasa Logo"
-              fill
-              sizes="40px"
-              className="object-contain p-1.5"
-            />
+          <div className="relative w-10 h-10">
+            <Image src="/images/logo.png" alt="SisaRasa Logo" width={40} height={40} className="object-contain" />
           </div>
-          <span className="text-2xl font-poppins font-extrabold text-white drop-shadow-md tracking-tight">
-            SisaRasa
-          </span>
+          <span className="text-2xl font-poppins font-extrabold text-[#2E7D32] tracking-tight">SisaRasa</span>
         </div>
 
-        {/* Tagline Card di kiri bawah */}
-        <div className="relative z-10 flex-1 flex flex-col justify-end p-10 text-white">
-          <div className="backdrop-blur-md bg-white/10 p-8 rounded-2xl border border-white/20 shadow-2xl max-w-sm">
-            <h2 className="text-2xl font-poppins font-bold leading-snug mb-3">
+        <div className="relative z-10 flex-1 flex flex-col justify-center px-10 pb-16">
+          <div className="max-w-md">
+            <div className="inline-flex items-center gap-2 bg-[#2E7D32]/10 rounded-full px-4 py-1.5 mb-6">
+              <Leaf className="w-4 h-4 text-[#2E7D32]" />
+              <span className="text-[#2E7D32] text-xs font-bold font-poppins">#SelamatkanMakanan</span>
+            </div>
+            <h2 className="text-3xl font-poppins font-extrabold text-[#1A1A1A] leading-tight mb-4">
               Selamatkan Makanan,<br />Hemat Pengeluaran.
             </h2>
-            <p className="text-white/85 text-sm leading-relaxed">
+            <p className="text-[#1A1A1A]/60 text-sm leading-relaxed">
               Bergabunglah bersama ribuan orang yang telah menyelamatkan makanan lezat dari UMKM lokal dengan diskon besar.
             </p>
           </div>
         </div>
+
+        {/* Decorative element */}
+        <div className="absolute right-0 bottom-0 w-64 h-64 bg-[#2E7D32]/5 rounded-full -translate-y-1/4 translate-x-1/4" />
+        <div className="absolute left-0 top-1/3 w-48 h-48 bg-[#FF8A00]/5 rounded-full" />
       </div>
 
-      {/* ── KANAN: Form Login ────────────────────────────────── */}
+      {/* ── KANAN: Form Login ── */}
       <div className="flex w-full flex-col justify-center px-6 py-12 lg:w-1/2 lg:px-14 xl:px-20">
         <div className="mx-auto w-full max-w-md">
 
           {/* Mobile logo */}
-          <div className="flex items-center gap-2 mb-6 lg:hidden">
-            <div className="relative w-8 h-8 bg-white rounded-lg shadow border border-dark/5 overflow-hidden">
-              <Image src="/images/logo.png" alt="SisaRasa" fill sizes="32px" className="object-contain p-1" />
+          <div className="flex items-center gap-2 mb-8 lg:hidden">
+            <div className="relative w-8 h-8">
+              <Image src="/images/logo.png" alt="SisaRasa" width={32} height={32} className="object-contain" />
             </div>
-            <span className="font-poppins font-bold text-dark text-lg">SisaRasa</span>
+            <span className="font-poppins font-bold text-[#2E7D32] text-lg">SisaRasa</span>
           </div>
 
-          {/* Header */}
           <div className="mb-8">
-            <h1 className="text-2xl font-poppins font-extrabold text-dark tracking-tight">
+            <h1 className="text-2xl font-poppins font-extrabold text-[#1A1A1A] tracking-tight">
               Selamat Datang Kembali!
             </h1>
-            <p className="mt-1.5 text-sm text-dark/60">
+            <p className="mt-1.5 text-sm text-[#1A1A1A]/60">
               Masuk dan temukan makanan lezat dengan harga hemat hari ini.
             </p>
           </div>
 
-          {/* Form */}
           <form onSubmit={handleLogin} className="space-y-5">
             <div>
-              <label htmlFor="email" className="block text-sm font-semibold text-dark mb-1.5">
+              <label htmlFor="email" className="block text-sm font-semibold text-[#1A1A1A] mb-1.5">
                 Alamat Email
               </label>
               <input
@@ -157,22 +139,14 @@ export default function LoginPage() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="nama@email.com"
-                className="w-full px-4 py-3 rounded-xl border border-dark/10 bg-white text-dark placeholder-dark/35 focus:border-primary-orange focus:ring-2 focus:ring-primary-orange/20 transition-all outline-none text-sm"
+                className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-white text-[#1A1A1A] placeholder-[#1A1A1A]/30 focus:border-[#2E7D32] focus:ring-2 focus:ring-[#2E7D32]/10 transition-all outline-none text-sm"
               />
             </div>
 
             <div>
-              <div className="flex items-center justify-between mb-1.5">
-                <label htmlFor="password" className="block text-sm font-semibold text-dark">
-                  Kata Sandi
-                </label>
-                <Link
-                  href="/forgot-password"
-                  className="text-xs font-semibold text-primary-teal hover:text-light-teal transition-colors"
-                >
-                  Lupa kata sandi?
-                </Link>
-              </div>
+              <label htmlFor="password" className="block text-sm font-semibold text-[#1A1A1A] mb-1.5">
+                Kata Sandi
+              </label>
               <div className="relative">
                 <input
                   id="password"
@@ -181,14 +155,14 @@ export default function LoginPage() {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="••••••••"
-                  className="w-full px-4 py-3 pr-24 rounded-xl border border-dark/10 bg-white text-dark placeholder-dark/35 focus:border-primary-orange focus:ring-2 focus:ring-primary-orange/20 transition-all outline-none text-sm"
+                  className="w-full px-4 py-3 pr-11 rounded-xl border border-slate-200 bg-white text-[#1A1A1A] placeholder-[#1A1A1A]/30 focus:border-[#2E7D32] focus:ring-2 focus:ring-[#2E7D32]/10 transition-all outline-none text-sm"
                 />
                 <button
                   type="button"
                   onClick={() => setShowPass(!showPass)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-dark/40 hover:text-dark/70 transition-colors text-xs font-semibold"
+                  className="absolute right-3.5 top-1/2 -translate-y-1/2 text-[#1A1A1A]/40 hover:text-[#1A1A1A]/70 transition-colors"
                 >
-                  {showPass ? 'Sembunyikan' : 'Tampilkan'}
+                  {showPass ? <EyeOff size={18} /> : <Eye size={18} />}
                 </button>
               </div>
             </div>
@@ -196,38 +170,35 @@ export default function LoginPage() {
             <button
               type="submit"
               disabled={loading}
-              className="w-full py-3.5 px-4 rounded-xl bg-primary-orange text-white font-poppins font-bold text-sm shadow-lg shadow-primary-orange/25 hover:-translate-y-0.5 hover:shadow-primary-orange/35 active:translate-y-0 transition-all disabled:opacity-50 disabled:pointer-events-none flex justify-center items-center gap-2"
+              className="w-full py-3.5 px-4 rounded-xl bg-[#2E7D32] hover:bg-[#236026] text-white font-poppins font-bold text-sm shadow-md hover:-translate-y-0.5 active:translate-y-0 transition-all disabled:opacity-50 disabled:pointer-events-none flex justify-center items-center gap-2"
             >
               {loading ? <Spinner /> : 'Masuk ke Akun'}
             </button>
           </form>
 
-          {/* Divider */}
           <div className="relative my-7">
             <div className="absolute inset-0 flex items-center">
-              <div className="w-full border-t border-dark/10" />
+              <div className="w-full border-t border-slate-100" />
             </div>
             <div className="relative flex justify-center text-xs uppercase">
-              <span className="bg-cream-bg px-4 text-dark/40 font-semibold tracking-wider">atau</span>
+              <span className="bg-white px-4 text-[#1A1A1A]/40 font-semibold tracking-wider">atau</span>
             </div>
           </div>
 
-          {/* Google */}
           <button
             onClick={handleGoogleLogin}
             type="button"
-            className="w-full py-3 px-4 rounded-xl bg-white hover:bg-dark/5 border border-dark/10 text-dark font-semibold text-sm shadow-sm flex items-center justify-center gap-3 transition-all"
+            className="w-full py-3 px-4 rounded-xl bg-white hover:bg-slate-50 border border-slate-200 text-[#1A1A1A]/80 font-semibold text-sm shadow-sm flex items-center justify-center gap-3 transition-all"
           >
             <GoogleIcon />
             Masuk dengan Google
           </button>
 
-          {/* Footer */}
-          <p className="mt-8 text-center text-sm text-dark/60">
+          <p className="mt-8 text-center text-sm text-[#1A1A1A]/60">
             Belum punya akun?{' '}
             <Link
               href="/register"
-              className="font-bold text-primary-teal hover:text-light-teal underline decoration-2 transition-colors"
+              className="font-bold text-[#0F766E] hover:text-[#14B8A6] underline decoration-2 underline-offset-2 transition-colors"
             >
               Daftar sekarang
             </Link>
@@ -238,7 +209,6 @@ export default function LoginPage() {
   )
 }
 
-/* ── Helper Components ── */
 function Spinner() {
   return (
     <svg className="animate-spin h-5 w-5 text-white" fill="none" viewBox="0 0 24 24">

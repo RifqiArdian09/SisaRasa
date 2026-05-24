@@ -1,7 +1,8 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Search, Filter, Shield, ShoppingBag, User, ChevronDown, MoreHorizontal, Loader2 } from 'lucide-react'
+import { Search, ShoppingBag, User, MoreHorizontal, Loader2, Trash2 } from 'lucide-react'
+import Image from 'next/image'
 import { createClient } from '@/lib/supabase/client'
 import { toast } from 'react-hot-toast'
 
@@ -14,12 +15,13 @@ interface UserItem {
   role: UserRole
   created_at: string
   ordersCount: number
+  avatar_url?: string | null
 }
 
 const ROLE_CONFIG: Record<string, { label: string; cls: string; icon: React.ElementType }> = {
   customer: { label: 'Customer', cls: 'bg-blue-50 text-blue-700', icon: User },
-  store:    { label: 'Store',    cls: 'bg-orange-50 text-orange-700', icon: ShoppingBag },
-  admin:    { label: 'Admin',    cls: 'bg-purple-50 text-purple-700', icon: Shield },
+  store: { label: 'Store', cls: 'bg-orange-50 text-orange-700', icon: ShoppingBag },
+  admin: { label: 'Admin', cls: 'bg-purple-50 text-purple-700', icon: User },
 }
 
 const AVATAR_COLORS = [
@@ -33,6 +35,7 @@ export default function AdminUsersPage() {
   const [search, setSearch] = useState('')
   const [roleFilter, setRoleFilter] = useState<'all' | UserRole>('all')
   const [isLoading, setIsLoading] = useState(true)
+  const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null)
 
   const supabase = createClient()
 
@@ -43,23 +46,22 @@ export default function AdminUsersPage() {
   const fetchUsers = async () => {
     setIsLoading(true)
     try {
-      // Fetch users
       const { data: usersData, error: usersError } = await supabase
         .from('users')
-        .select('id, name, email, role, created_at')
+        .select('id, name, email, role, created_at, avatar_url')
         .order('created_at', { ascending: false })
 
       if (usersError) throw usersError
 
-      // Fetch orders count per user (simplified)
-      // In a real large-scale app, you might want to do a join or rpc
       const { data: ordersData, error: ordersError } = await supabase
         .from('orders')
         .select('customer_id')
 
       if (ordersError) throw ordersError
 
-      const formattedUsers: UserItem[] = (usersData || []).map(u => ({
+      const formattedUsers: UserItem[] = (usersData || [])
+        .filter(u => u.role !== 'admin')
+        .map(u => ({
         ...u,
         role: u.role as UserRole,
         ordersCount: ordersData?.filter(o => o.customer_id === u.id).length || 0
@@ -70,6 +72,47 @@ export default function AdminUsersPage() {
       toast.error('Gagal mengambil data pengguna: ' + error.message)
     } finally {
       setIsLoading(false)
+    }
+  }
+
+  const handleDeleteUser = async (id: string) => {
+    try {
+      // Cari store milik user ini (jika role store)
+      const { data: stores } = await supabase.from('stores').select('id').eq('user_id', id)
+
+      if (stores && stores.length > 0) {
+        const storeIds = stores.map(s => s.id)
+        // Hapus produk & gambar dari store
+        const { data: products } = await supabase.from('products').select('id').in('store_id', storeIds)
+        if (products && products.length > 0) {
+          const productIds = products.map(p => p.id)
+          await supabase.from('product_images').delete().in('product_id', productIds)
+          await supabase.from('reviews').delete().in('product_id', productIds)
+          await supabase.from('products').delete().in('id', productIds)
+        }
+        await supabase.from('review_replies').delete().in('store_id', storeIds)
+        await supabase.from('conversations').delete().in('store_id', storeIds)
+        await supabase.from('orders').delete().in('store_id', storeIds)
+        await supabase.from('stores').delete().in('id', storeIds)
+      }
+
+      // Hapus data user lainnya
+      await supabase.from('reviews').delete().eq('customer_id', id)
+      await supabase.from('orders').delete().eq('customer_id', id)
+      await supabase.from('favorites').delete().eq('customer_id', id)
+      await supabase.from('messages').delete().eq('sender_id', id)
+      await supabase.from('notifications').delete().eq('user_id', id)
+
+      // Hapus user
+      const { error } = await supabase.from('users').delete().eq('id', id)
+      if (error) throw error
+
+      setUsers(prev => prev.filter(u => u.id !== id))
+      toast.success('Pengguna dan seluruh data terkait berhasil dihapus')
+    } catch (error: any) {
+      toast.error('Gagal menghapus pengguna: ' + error.message)
+    } finally {
+      setDeleteConfirm(null)
     }
   }
 
@@ -91,10 +134,9 @@ export default function AdminUsersPage() {
         </div>
       </div>
 
-      {/* Filters */}
       <div className="flex flex-col sm:flex-row gap-3 mb-6">
         <div className="flex gap-1 bg-white rounded-2xl p-1.5 ring-1 ring-[#E5E7EB] shadow-sm">
-          {(['all', 'customer', 'store', 'admin'] as const).map(r => (
+          {(['all', 'customer', 'store'] as const).map(r => (
             <button
               key={r}
               onClick={() => setRoleFilter(r as 'all' | UserRole)}
@@ -116,16 +158,12 @@ export default function AdminUsersPage() {
             className="w-full pl-11 pr-4 py-3 bg-white rounded-2xl ring-1 ring-[#E5E7EB] text-sm outline-none focus:ring-[#0F766E] transition-all shadow-sm"
           />
         </div>
-        <button className="flex items-center gap-2 px-4 py-3 bg-white rounded-2xl ring-1 ring-[#E5E7EB] text-sm font-semibold text-[#6A7686] shadow-sm hover:text-[#080C1A]">
-          <Filter className="size-4" /> Filter <ChevronDown className="size-3.5" />
-        </button>
       </div>
 
-      {/* Table */}
       <div className="rounded-3xl ring-1 ring-[#E5E7EB] bg-white shadow-sm overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full min-w-[700px]">
-            <thead className="bg-[#F8FAFC]">
+            <thead className="bg-cream-bg">
               <tr>
                 {['Pengguna', 'Role', 'Status', 'Bergabung', 'Order', 'Aksi'].map((h, i) => (
                   <th key={h} className={`px-6 py-4 text-xs font-bold text-[#6A7686] uppercase tracking-wider ${i === 5 ? 'text-right' : 'text-left'}`}>{h}</th>
@@ -156,8 +194,12 @@ export default function AdminUsersPage() {
                   <tr key={user.id} className="hover:bg-[#F3F6F8]/50 transition-colors">
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-3">
-                        <div className={`size-10 rounded-full flex items-center justify-center font-bold text-sm shrink-0 ${color}`}>
-                          {initials}
+                        <div className={`size-10 rounded-full flex items-center justify-center font-bold text-sm shrink-0 overflow-hidden ${user.avatar_url ? '' : color}`}>
+                          {user.avatar_url ? (
+                            <Image src={user.avatar_url} alt={user.name} width={40} height={40} className="object-cover size-full" />
+                          ) : (
+                            initials
+                          )}
                         </div>
                         <div>
                           <p className="font-semibold text-sm">{user.name}</p>
@@ -180,8 +222,12 @@ export default function AdminUsersPage() {
                     </td>
                     <td className="px-6 py-4 text-sm font-bold">{user.ordersCount}</td>
                     <td className="px-6 py-4 text-right">
-                      <button className="size-8 inline-flex items-center justify-center rounded-xl ring-1 ring-[#E5E7EB] bg-white hover:ring-[#0F766E] hover:text-[#0F766E] transition-all">
-                        <MoreHorizontal className="size-4" />
+                      <button
+                        onClick={() => setDeleteConfirm(user.id)}
+                        className="size-8 inline-flex items-center justify-center rounded-xl ring-1 ring-[#E5E7EB] bg-white hover:ring-red-400 hover:text-red-500 hover:bg-red-50 transition-all"
+                        title="Hapus pengguna"
+                      >
+                        <Trash2 className="size-4" />
                       </button>
                     </td>
                   </tr>
@@ -192,10 +238,26 @@ export default function AdminUsersPage() {
         </div>
         {!isLoading && (
           <div className="px-6 py-4 border-t border-[#E5E7EB] text-sm text-[#6A7686]">
-            Menampilkan <strong className="text-[#080C1A]">{filtered.length}</strong> dari <strong className="text-[#080C1A]">{users.length}</strong> pengguna
+            Menampilkan <strong className="text-dark">{filtered.length}</strong> dari <strong className="text-dark">{users.length}</strong> pengguna
           </div>
         )}
       </div>
+
+      {deleteConfirm && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl p-6 max-w-sm w-full shadow-2xl">
+            <div className="w-16 h-16 rounded-full bg-red-50 flex items-center justify-center mx-auto mb-4">
+              <Trash2 className="w-8 h-8 text-red-500" />
+            </div>
+            <h3 className="text-xl font-bold mb-2 text-center">Hapus Pengguna</h3>
+            <p className="text-[#6A7686] text-sm mb-6 text-center">Apakah kamu yakin ingin menghapus pengguna ini? Seluruh data terkait (toko, produk, pesanan, ulasan) akan ikut terhapus.</p>
+            <div className="flex gap-3">
+              <button onClick={() => setDeleteConfirm(null)} className="flex-1 px-4 py-3 rounded-full ring-1 ring-[#E5E7EB] font-bold hover:bg-[#F3F6F8] transition-all">Batal</button>
+              <button onClick={() => handleDeleteUser(deleteConfirm)} className="flex-1 px-4 py-3 rounded-full bg-red-500 text-white font-bold hover:bg-red-600 transition-all">Ya, Hapus</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

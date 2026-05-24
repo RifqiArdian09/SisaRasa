@@ -1,9 +1,10 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
 import {
   TrendingUp, TrendingDown, Wallet, ShoppingBag, Store, Users,
-  MoreHorizontal, Eye, MapPin, CheckCircle, XCircle, Loader2, Store as StoreIcon, Image as ImageIcon
+  Eye, MapPin, CheckCircle, XCircle, Loader2, Store as StoreIcon
 } from 'lucide-react'
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip,
@@ -61,16 +62,32 @@ export default function AdminDashboardPage() {
   const [recentOrders, setRecentOrders] = useState<any[]>([])
   const [pendingStores, setPendingStores] = useState<any[]>([])
   const [chartData, setChartData] = useState<any[]>([])
+  const [allOrders, setAllOrders] = useState<any[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [verifyModal, setVerifyModal] = useState<any>(null)
+  const [selectedYear, setSelectedYear] = useState(new Date().getFullYear())
+  const [orderModal, setOrderModal] = useState<any>(null)
 
   const supabase = createClient()
+  const router = useRouter()
 
   useEffect(() => { fetchDashboardData() }, [])
 
   const fetchDashboardData = async () => {
     setIsLoading(true)
     try {
+      const { data: { user }, error: authError } = await supabase.auth.getUser()
+      if (authError || !user) {
+        router.push('/login')
+        return
+      }
+
+      const { data: profile } = await supabase.from('users').select('role').eq('id', user.id).single()
+      if (!profile || profile.role !== 'admin') {
+        router.push('/login')
+        return
+      }
+
       const [
         { count: usersCount },
         { count: storesCount },
@@ -84,10 +101,10 @@ export default function AdminDashboardPage() {
       ])
 
       const orders = ordersData || []
+      setAllOrders(orders)
       const completedOrders = orders.filter(o => o.status === 'selesai')
       const totalRev = completedOrders.reduce((acc, o) => acc + o.total_price, 0)
-      
-      // Calculate Trends based on This Month vs Last Month
+
       const currentMonth = new Date().getMonth()
       const lastMonth = currentMonth === 0 ? 11 : currentMonth - 1
       const currentYear = new Date().getFullYear()
@@ -112,32 +129,38 @@ export default function AdminDashboardPage() {
       setRecentOrders(orders.slice(0, 5))
       setPendingStores(storesData || [])
 
-      // Generate actual chart data grouped by month
-      const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
-      const groupedChart: Record<string, number> = {}
-      const thisYear = new Date().getFullYear()
-      for(let i=0; i<12; i++) groupedChart[months[i]] = 0
-
-      orders.filter(o => o.status === 'selesai').forEach(o => {
-        const d = new Date(o.created_at)
-        if (d.getFullYear() === thisYear) {
-          groupedChart[months[d.getMonth()]] += o.total_price
-        }
-      })
-      
-      // Only show up to current month to look realistic
-      const currentMonthIndex = new Date().getMonth()
-      const finalChartData = months.slice(0, currentMonthIndex + 1).map(m => ({
-        month: m,
-        value: groupedChart[m]
-      }))
-
-      setChartData(finalChartData)
+      generateChartData(orders, currentYear)
     } catch (error: any) {
       toast.error('Gagal memuat dashboard: ' + error.message)
     } finally {
       setIsLoading(false)
     }
+  }
+
+  const generateChartData = (orders: any[], year: number) => {
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+    const groupedChart: Record<string, number> = {}
+    for (let i = 0; i < 12; i++) groupedChart[months[i]] = 0
+
+    orders.filter(o => o.status === 'selesai').forEach(o => {
+      const d = new Date(o.created_at)
+      if (d.getFullYear() === year) {
+        groupedChart[months[d.getMonth()]] += o.total_price
+      }
+    })
+
+    const currentMonthIndex = year === new Date().getFullYear() ? new Date().getMonth() : 11
+    const finalChartData = months.slice(0, currentMonthIndex + 1).map(m => ({
+      month: m,
+      value: groupedChart[m]
+    }))
+
+    setChartData(finalChartData)
+  }
+
+  const handleYearChange = (year: number) => {
+    setSelectedYear(year)
+    generateChartData(allOrders, year)
   }
 
   const handleVerify = (storeId: string, storeName: string, action: 'approve' | 'reject') => setVerifyModal({ storeId, storeName, action })
@@ -166,8 +189,9 @@ export default function AdminDashboardPage() {
   const orderStatusData = [
     { name: 'Selesai', value: recentOrders.filter(o => o.status === 'selesai').length, color: '#0F766E' },
     { name: 'Diproses', value: recentOrders.filter(o => o.status === 'diproses').length, color: '#FF8A00' },
+    { name: 'Pending', value: recentOrders.filter(o => o.status === 'pending').length, color: '#EAB308' },
     { name: 'Dibatalkan', value: recentOrders.filter(o => o.status === 'dibatalkan').length, color: '#EF4444' },
-  ].filter(d => d.value > 0) // only show slices that have actual data
+  ].filter(d => d.value > 0)
 
   if (isLoading) return (
     <div className="flex flex-col items-center justify-center py-32">
@@ -179,7 +203,7 @@ export default function AdminDashboardPage() {
   return (
     <div className="p-5 md:p-8 pb-24">
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 mb-6 md:mb-8">
-        <StatCard icon={Wallet} label="Total Revenue" value={`Rp ${(stats.revenue / 1000000).toFixed(1)}M`} trend={`${stats.revTrend > 0 ? '+' : ''}${stats.revTrend.toFixed(1)}%`} trendPositive={stats.revTrend >= 0} iconBg="bg-[#0F766E]/10" iconColor="text-[#0F766E]" />
+        <StatCard icon={Wallet} label="Total Revenue" value={`Rp ${stats.revenue.toLocaleString('id-ID')}`} trend={`${stats.revTrend > 0 ? '+' : ''}${stats.revTrend.toFixed(1)}%`} trendPositive={stats.revTrend >= 0} iconBg="bg-[#0F766E]/10" iconColor="text-[#0F766E]" />
         <StatCard icon={ShoppingBag} label="Total Orders" value={stats.orders} trend={`${stats.orderTrend > 0 ? '+' : ''}${stats.orderTrend.toFixed(1)}%`} trendPositive={stats.orderTrend >= 0} iconBg="bg-[#FF8A00]/10" iconColor="text-[#FF8A00]" />
         <StatCard icon={Store} label="Active Stores" value={stats.stores} trend="Realtime" trendPositive iconBg="bg-sky-50" iconColor="text-sky-700" />
         <StatCard icon={Users} label="Total Users" value={stats.users} trend="Realtime" trendPositive iconBg="bg-purple-50" iconColor="text-purple-700" />
@@ -192,9 +216,13 @@ export default function AdminDashboardPage() {
               <h3 className="font-bold text-lg">Revenue Overview</h3>
               <p className="text-sm text-[#6A7686]">Monthly revenue performance</p>
             </div>
-            <select className="px-4 py-2.5 rounded-xl bg-[#F3F6F8] text-sm font-medium outline-none focus:ring-2 focus:ring-[#0F766E] cursor-pointer border-0">
-              <option>This Year</option>
-              <option>Last Year</option>
+            <select
+              value={selectedYear}
+              onChange={e => handleYearChange(Number(e.target.value))}
+              className="px-4 py-2.5 rounded-xl bg-[#F3F6F8] text-sm font-medium outline-none focus:ring-2 focus:ring-[#0F766E] cursor-pointer border-0"
+            >
+              <option value={2025}>2025</option>
+              <option value={2026}>2026</option>
             </select>
           </div>
           <div className="h-[300px] w-full">
@@ -202,7 +230,7 @@ export default function AdminDashboardPage() {
               <LineChart data={chartData} margin={{ top: 5, right: 5, bottom: 5, left: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#F3F6F8" vertical={false} />
                 <XAxis dataKey="month" axisLine={false} tickLine={false} tick={{ fill: '#6A7686', fontSize: 12 }} dy={10} />
-                <YAxis axisLine={false} tickLine={false} tick={{ fill: '#6A7686', fontSize: 12 }} tickFormatter={v => `${v/1000}k`} dx={-5} />
+                <YAxis axisLine={false} tickLine={false} tick={{ fill: '#6A7686', fontSize: 12 }} tickFormatter={v => `${v / 1000}k`} dx={-5} />
                 <Tooltip content={<CustomTooltip />} />
                 <Line type="monotone" dataKey="value" stroke="#0F766E" strokeWidth={3} dot={{ fill: '#fff', stroke: '#0F766E', strokeWidth: 2, r: 4 }} activeDot={{ r: 6, fill: '#0F766E' }} />
               </LineChart>
@@ -213,9 +241,6 @@ export default function AdminDashboardPage() {
         <div className="flex flex-col rounded-3xl ring-1 ring-[#E5E7EB] p-6 bg-white shadow-sm">
           <div className="flex items-center justify-between mb-6">
             <h3 className="font-bold text-lg">Order Status</h3>
-            <button className="size-8 flex items-center justify-center rounded-lg hover:bg-[#F3F6F8] transition-all cursor-pointer">
-              <MoreHorizontal className="size-5 text-[#6A7686]" />
-            </button>
           </div>
           <div className="relative h-[220px] flex items-center justify-center mb-4">
             <ResponsiveContainer width="100%" height="100%">
@@ -223,7 +248,7 @@ export default function AdminDashboardPage() {
                 <Pie data={orderStatusData} cx="50%" cy="50%" innerRadius={70} outerRadius={95} dataKey="value" paddingAngle={3}>
                   {orderStatusData.map((entry, i) => <Cell key={i} fill={entry.color} />)}
                 </Pie>
-                <Tooltip formatter={(v: number) => [`${v} Orders`, '']} />
+                <Tooltip formatter={(v) => [`${v} Orders`, '']} />
               </PieChart>
             </ResponsiveContainer>
             <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
@@ -246,10 +271,11 @@ export default function AdminDashboardPage() {
         <div className="xl:col-span-2 flex flex-col rounded-3xl ring-1 ring-[#E5E7EB] bg-white shadow-sm overflow-hidden">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between p-6 gap-4 border-b border-[#E5E7EB]">
             <div><h3 className="font-bold text-lg">Recent Orders</h3><p className="text-sm text-[#6A7686]">Latest transactions</p></div>
+            <button onClick={() => router.push('/admin/orders')} className="text-sm font-semibold text-[#0F766E] hover:underline">Lihat Semua</button>
           </div>
           <div className="overflow-x-auto">
             <table className="w-full min-w-[640px]">
-              <thead className="bg-[#F8FAFC]">
+              <thead className="bg-cream-bg">
                 <tr>
                   {['Customer', 'Store', 'Amount', 'Status', 'Action'].map((h, i) => <th key={h} className={`px-6 py-4 text-xs font-bold text-[#6A7686] uppercase tracking-wider ${i === 4 ? 'text-right' : 'text-left'}`}>{h}</th>)}
                 </tr>
@@ -268,7 +294,9 @@ export default function AdminDashboardPage() {
                     <td className="px-6 py-4"><p className="font-medium text-sm">{order.stores?.store_name}</p></td>
                     <td className="px-6 py-4"><p className="font-bold text-sm">Rp {order.total_price.toLocaleString('id-ID')}</p></td>
                     <td className="px-6 py-4"><span className={`inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-bold uppercase ${STATUS_STYLES[order.status] || STATUS_STYLES.pending}`}>{order.status}</span></td>
-                    <td className="px-6 py-4 text-right"><button className="size-8 inline-flex items-center justify-center rounded-lg ring-1 ring-[#E5E7EB] bg-white hover:ring-[#0F766E] hover:text-[#0F766E] transition-all cursor-pointer"><Eye className="size-4" /></button></td>
+                    <td className="px-6 py-4 text-right">
+                      <button onClick={() => setOrderModal(order)} className="size-8 inline-flex items-center justify-center rounded-lg ring-1 ring-[#E5E7EB] bg-white hover:ring-[#0F766E] hover:text-[#0F766E] transition-all cursor-pointer"><Eye className="size-4" /></button>
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -314,17 +342,34 @@ export default function AdminDashboardPage() {
       </div>
 
       {verifyModal && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-3xl p-6 max-w-sm w-full shadow-2xl">
             <div className={`w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 ${verifyModal.action === 'approve' ? 'bg-emerald-50' : 'bg-red-50'}`}>
               {verifyModal.action === 'approve' ? <CheckCircle className="w-8 h-8 text-emerald-600" /> : <XCircle className="w-8 h-8 text-red-500" />}
             </div>
             <h3 className="text-xl font-bold mb-2 text-center">{verifyModal.action === 'approve' ? 'Approve Store' : 'Reject Store'}</h3>
-            <p className="text-[#6A7686] text-sm mb-6 text-center">{verifyModal.action === 'approve' ? <>Approve <strong className="text-[#080C1A]">{verifyModal.storeName}</strong>?</> : <>Tolak dan hapus <strong className="text-[#080C1A]">{verifyModal.storeName}</strong>?</>}</p>
+            <p className="text-[#6A7686] text-sm mb-6 text-center">{verifyModal.action === 'approve' ? <>Approve <strong className="text-dark">{verifyModal.storeName}</strong>?</> : <>Tolak dan hapus <strong className="text-dark">{verifyModal.storeName}</strong>?</>}</p>
             <div className="flex gap-3">
               <button onClick={() => setVerifyModal(null)} className="flex-1 px-4 py-3 rounded-full ring-1 ring-[#E5E7EB] font-bold hover:bg-[#F3F6F8] transition-all">Cancel</button>
               <button onClick={confirmVerify} className={`flex-1 px-4 py-3 rounded-full font-bold text-white transition-all ${verifyModal.action === 'approve' ? 'bg-emerald-500' : 'bg-red-500'}`}>{verifyModal.action === 'approve' ? 'Yes, Approve' : 'Yes, Reject'}</button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {orderModal && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => setOrderModal(null)}>
+          <div className="bg-white rounded-3xl p-6 max-w-md w-full shadow-2xl" onClick={e => e.stopPropagation()}>
+            <h3 className="font-bold text-lg mb-4">Detail Pesanan</h3>
+            <div className="space-y-3 text-sm">
+              <div className="flex justify-between"><span className="text-[#6A7686]">ID</span><span className="font-semibold">ORD-{orderModal.id.substring(0, 6).toUpperCase()}</span></div>
+              <div className="flex justify-between"><span className="text-[#6A7686]">Customer</span><span className="font-semibold">{orderModal.users?.name}</span></div>
+              <div className="flex justify-between"><span className="text-[#6A7686]">Toko</span><span className="font-semibold">{orderModal.stores?.store_name}</span></div>
+              <div className="flex justify-between"><span className="text-[#6A7686]">Total</span><span className="font-bold text-[#0F766E]">Rp {orderModal.total_price.toLocaleString('id-ID')}</span></div>
+              <div className="flex justify-between"><span className="text-[#6A7686]">Status</span><span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase ${STATUS_STYLES[orderModal.status] || STATUS_STYLES.pending}`}>{orderModal.status}</span></div>
+              <div className="flex justify-between"><span className="text-[#6A7686]">Tanggal</span><span className="font-semibold">{new Date(orderModal.created_at).toLocaleDateString('id-ID', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</span></div>
+            </div>
+            <button onClick={() => setOrderModal(null)} className="w-full mt-6 py-3 rounded-full bg-[#0F766E] text-white font-bold hover:bg-[#0F766E]/90 transition-all">Tutup</button>
           </div>
         </div>
       )}

@@ -75,7 +75,9 @@ export default function LocationPicker({
       })
 
       mapInstanceRef.current = map
-      setTimeout(() => map.invalidateSize(), 300)
+      map.whenReady(() => {
+        if (!destroyed) map.invalidateSize()
+      })
     }
 
     initMap()

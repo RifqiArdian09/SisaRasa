@@ -1,23 +1,26 @@
 'use client'
 
-import React, { useEffect, useState } from 'react'
+import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
 import { usePathname } from 'next/navigation'
-import { Menu, X, Search, Store, ChevronDown } from 'lucide-react'
+import { Menu, X, Leaf, Search, Store } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import type { User } from '@supabase/supabase-js'
 
 const navLinks = [
   { label: 'Beranda', href: '/' },
-  { label: 'Jelajahi', href: '/foods', icon: Search },
-  { label: 'Jadi Mitra', href: '/register?role=store', icon: Store },
+  { label: 'Jelajahi', href: '/foods' },
+  { label: 'Cara Kerja', href: '/#cara-kerja' },
+  { label: 'FAQ', href: '/#faq' },
+  { label: 'Untuk UMKM', href: '/register?role=store' },
 ]
 
 export default function Navbar() {
   const [mobileOpen, setMobileOpen] = useState(false)
   const [scrolled, setScrolled] = useState(false)
   const [user, setUser] = useState<User | null>(null)
+  const [userRole, setUserRole] = useState<string | null>(null)
   const pathname = usePathname()
   const supabase = createClient()
 
@@ -28,106 +31,92 @@ export default function Navbar() {
   }, [])
 
   useEffect(() => {
-    supabase.auth.getUser().then(({ data }) => setUser(data?.user ?? null))
-    const { data: listener } = supabase.auth.onAuthStateChange((_, session) => {
+    const fetchUser = async () => {
+      const { data } = await supabase.auth.getUser()
+      setUser(data?.user ?? null)
+      if (data?.user) {
+        const { data: profile } = await supabase
+          .from('users')
+          .select('role')
+          .eq('id', data.user.id)
+          .single()
+        setUserRole(profile?.role ?? 'customer')
+      }
+    }
+    fetchUser()
+    const { data: listener } = supabase.auth.onAuthStateChange(async (_, session) => {
       setUser(session?.user ?? null)
+      if (session?.user) {
+        const { data: profile } = await supabase
+          .from('users')
+          .select('role')
+          .eq('id', session.user.id)
+          .single()
+        setUserRole(profile?.role ?? 'customer')
+      } else {
+        setUserRole(null)
+      }
     })
     return () => listener?.subscription.unsubscribe()
   }, [supabase])
 
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setMobileOpen(false)
-    }, 0)
-    return () => clearTimeout(timer)
-  }, [pathname])
-
-  const isActive = (href: string) => {
-    if (href === '/') return pathname === '/'
-    return pathname.startsWith(href)
+  const getDashboardUrl = () => {
+    if (userRole === 'store') return '/store/dashboard'
+    if (userRole === 'admin') return '/admin/dashboard'
+    return '/dashboard'
   }
+
+  useEffect(() => {
+    setMobileOpen(false)
+  }, [pathname])
 
   return (
     <>
       <nav
-        className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
-          scrolled
-            ? 'bg-white/80 backdrop-blur-xl shadow-sm border-b border-dark/5'
-            : 'bg-transparent'
+        className={`fixed top-0 left-0 right-0 z-50 transition-all duration-200 ${
+          scrolled ? 'bg-white shadow-sm border-b border-[#2D6A4F]/10' : 'bg-white border-b border-[#2D6A4F]/10'
         }`}
       >
-        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+        <div className="mx-auto max-w-7xl px-6 lg:px-12">
           <div className="flex h-16 items-center justify-between">
-            {/* Logo */}
-            <Link href="/" className="flex items-center gap-2.5 shrink-0">
-              <div className="relative w-8 h-8 bg-white rounded-xl shadow-sm overflow-hidden">
-                <Image
-                  src="/images/logo.png"
-                  alt="SisaRasa"
-                  fill
-                  sizes="32px"
-                  className="object-contain p-1"
-                />
+            <Link href="/" className="flex items-center gap-2.5">
+              <div className="w-8 h-8 rounded-lg bg-[#2D6A4F] flex items-center justify-center">
+                <Leaf className="w-5 h-5 text-white" />
               </div>
-              <span className={`font-poppins font-extrabold text-lg tracking-tight ${scrolled ? 'text-dark' : 'text-white'}`}>
-                SisaRasa
-              </span>
+              <span className="font-bold text-lg text-[#2D6A4F] tracking-tight">SisaRasa</span>
             </Link>
 
-            {/* Desktop Nav */}
             <div className="hidden md:flex items-center gap-1">
-              {navLinks.map((link) => {
-                const Icon = link.icon
-                return (
-                  <Link
-                    key={link.href}
-                    href={link.href}
-                    className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-semibold transition-all ${
-                      isActive(link.href)
-                        ? scrolled
-                          ? 'bg-primary-orange/10 text-primary-orange'
-                          : 'bg-white/15 text-white'
-                        : scrolled
-                          ? 'text-dark/70 hover:text-dark hover:bg-dark/5'
-                          : 'text-white/80 hover:text-white hover:bg-white/10'
-                    }`}
-                  >
-                    {Icon && <Icon className="w-4 h-4" />}
-                    {link.label}
-                  </Link>
-                )
-              })}
+              {navLinks.map((link) => (
+                <Link
+                  key={link.href}
+                  href={link.href}
+                  className="px-4 py-2 rounded-lg text-sm font-semibold text-[#1B1B1B]/60 hover:text-[#2D6A4F] hover:bg-[#2D6A4F]/5 transition-all"
+                >
+                  {link.label}
+                </Link>
+              ))}
             </div>
 
-            {/* Auth Buttons Desktop */}
             <div className="hidden md:flex items-center gap-3">
               {user ? (
                 <Link
-                  href="/dashboard"
-                  className={`flex items-center gap-2 py-2 px-4 rounded-xl text-sm font-bold transition-all ${
-                    scrolled
-                      ? 'bg-primary-teal text-white hover:bg-primary-teal/90'
-                      : 'bg-white/20 text-white hover:bg-white/30 backdrop-blur-sm'
-                  }`}
+                  href={getDashboardUrl()}
+                  className="px-5 py-2 rounded-lg bg-[#1B4332] text-white text-sm font-bold hover:bg-[#2D6A4F] transition-all shadow-sm"
                 >
                   Dashboard
-                  <ChevronDown className="w-4 h-4" />
                 </Link>
               ) : (
                 <>
                   <Link
                     href="/login"
-                    className={`py-2 px-4 rounded-xl text-sm font-semibold transition-all ${
-                      scrolled
-                        ? 'text-dark/70 hover:text-dark hover:bg-dark/5'
-                        : 'text-white/80 hover:text-white hover:bg-white/10'
-                    }`}
+                    className="px-5 py-2 rounded-lg border-2 border-[#2D6A4F] text-[#2D6A4F] text-sm font-bold hover:bg-[#2D6A4F]/5 transition-all"
                   >
                     Masuk
                   </Link>
                   <Link
                     href="/register"
-                    className="py-2 px-5 rounded-xl bg-primary-orange text-white text-sm font-bold shadow-lg shadow-primary-orange/25 hover:-translate-y-0.5 hover:shadow-primary-orange/35 transition-all"
+                    className="px-5 py-2 rounded-lg bg-[#1B4332] text-white text-sm font-bold hover:bg-[#2D6A4F] transition-all shadow-sm"
                   >
                     Daftar
                   </Link>
@@ -135,12 +124,9 @@ export default function Navbar() {
               )}
             </div>
 
-            {/* Mobile Hamburger */}
             <button
               onClick={() => setMobileOpen(true)}
-              className={`md:hidden p-2 rounded-xl transition-all ${
-                scrolled ? 'text-dark hover:bg-dark/5' : 'text-white hover:bg-white/10'
-              }`}
+              className="md:hidden p-2 text-[#2D6A4F] hover:bg-[#2D6A4F]/5 rounded-lg transition-all"
               aria-label="Buka menu"
             >
               <Menu className="w-6 h-6" />
@@ -151,32 +137,26 @@ export default function Navbar() {
 
       {/* Mobile Drawer */}
       <div
-        className={`fixed inset-0 z-[60] transition-all duration-300 md:hidden ${
+        className={`fixed inset-0 z-[60] transition-all duration-200 md:hidden ${
           mobileOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'
         }`}
       >
-        {/* Backdrop */}
+        <div className="absolute inset-0 bg-black/40" onClick={() => setMobileOpen(false)} />
         <div
-          className="absolute inset-0 bg-black/40 backdrop-blur-sm"
-          onClick={() => setMobileOpen(false)}
-        />
-
-        {/* Drawer */}
-        <div
-          className={`absolute top-0 right-0 h-full w-72 max-w-[85vw] bg-white shadow-2xl transition-all duration-300 ${
+          className={`absolute top-0 right-0 h-full w-72 max-w-[85vw] bg-white shadow-2xl transition-all duration-200 ${
             mobileOpen ? 'translate-x-0' : 'translate-x-full'
           }`}
         >
-          <div className="flex items-center justify-between p-4 border-b border-dark/5">
+          <div className="flex items-center justify-between p-4 border-b border-[#2D6A4F]/10">
             <div className="flex items-center gap-2">
-              <div className="relative w-7 h-7 rounded-lg overflow-hidden">
-                <Image src="/images/logo.png" alt="SisaRasa" fill sizes="28px" className="object-contain p-0.5" />
+              <div className="w-7 h-7 rounded-lg bg-[#2D6A4F] flex items-center justify-center">
+                <Leaf className="w-4 h-4 text-white" />
               </div>
-              <span className="font-poppins font-extrabold text-dark text-base">SisaRasa</span>
+              <span className="font-bold text-[#2D6A4F] text-base">SisaRasa</span>
             </div>
             <button
               onClick={() => setMobileOpen(false)}
-              className="p-2 rounded-xl text-dark/50 hover:bg-dark/5 transition-all"
+              className="p-2 rounded-lg text-[#1B1B1B]/40 hover:bg-[#2D6A4F]/5 transition-all"
               aria-label="Tutup menu"
             >
               <X className="w-5 h-5" />
@@ -184,30 +164,22 @@ export default function Navbar() {
           </div>
 
           <div className="p-4 space-y-1">
-            {navLinks.map((link) => {
-              const Icon = link.icon
-              return (
-                <Link
-                  key={link.href}
-                  href={link.href}
-                  className={`flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold transition-all ${
-                    isActive(link.href)
-                      ? 'bg-primary-orange/10 text-primary-orange'
-                      : 'text-dark/70 hover:bg-dark/5 hover:text-dark'
-                  }`}
-                >
-                  {Icon && <Icon className="w-5 h-5" />}
-                  {link.label}
-                </Link>
-              )
-            })}
+            {navLinks.map((link) => (
+              <Link
+                key={link.href}
+                href={link.href}
+                className="block px-4 py-3 rounded-lg text-sm font-semibold text-[#1B1B1B]/60 hover:text-[#2D6A4F] hover:bg-[#2D6A4F]/5 transition-all"
+              >
+                {link.label}
+              </Link>
+            ))}
           </div>
 
-          <div className="p-4 border-t border-dark/5 space-y-3">
+          <div className="p-4 border-t border-[#2D6A4F]/10 space-y-3">
             {user ? (
               <Link
-                href="/dashboard"
-                className="block w-full py-3 px-4 rounded-xl bg-primary-teal text-white text-sm font-bold text-center"
+                href={getDashboardUrl()}
+                className="block w-full py-3 px-4 rounded-lg bg-[#1B4332] text-white text-sm font-bold text-center"
               >
                 Dashboard
               </Link>
@@ -215,13 +187,13 @@ export default function Navbar() {
               <>
                 <Link
                   href="/login"
-                  className="block w-full py-3 px-4 rounded-xl border border-dark/10 text-dark font-semibold text-sm text-center"
+                  className="block w-full py-3 px-4 rounded-lg border-2 border-[#2D6A4F] text-[#2D6A4F] font-bold text-sm text-center"
                 >
                   Masuk
                 </Link>
                 <Link
                   href="/register"
-                  className="block w-full py-3 px-4 rounded-xl bg-primary-orange text-white text-sm font-bold text-center shadow-lg"
+                  className="block w-full py-3 px-4 rounded-lg bg-[#1B4332] text-white text-sm font-bold text-center shadow-sm"
                 >
                   Daftar Sekarang
                 </Link>

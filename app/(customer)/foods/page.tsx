@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState, useCallback } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { Search, SlidersHorizontal, Clock, Star, Flame, Leaf, ChevronRight, X, Filter, Package } from 'lucide-react'
+import { Search, SlidersHorizontal, Clock, Star, Flame, Leaf, ChevronRight, X, Filter, Package, MapPin } from 'lucide-react'
 import Link from 'next/link'
 import Image from 'next/image'
 import { toast } from 'sonner'
@@ -16,8 +16,9 @@ interface Product {
   expired_at: string
   thumbnail_url: string
   is_active: boolean
-  stores: { id: string; store_name: string; logo_url: string }
+  stores: { id: string; store_name: string; logo_url: string; latitude: number; longitude: number }
   categories: { name: string; slug: string }
+  distance?: number
 }
 
 interface Category {
@@ -98,7 +99,16 @@ function ProductCard({ product }: { product: Product }) {
       {/* Info */}
       <div className="p-3 flex-1 flex flex-col justify-between gap-2">
         <div>
-          <p className="text-xs text-dark/40 font-medium truncate">{(product.stores as any)?.store_name}</p>
+          <div className="flex items-center gap-1.5">
+            <p className="text-xs text-dark/40 font-medium truncate">{(product.stores as any)?.store_name}</p>
+            {product.distance !== undefined && (
+              <span className="text-[10px] text-primary-teal font-bold shrink-0">
+                {product.distance < 1000
+                  ? `${Math.round(product.distance)}m`
+                  : `${(product.distance / 1000).toFixed(1)}km`}
+              </span>
+            )}
+          </div>
           <h3 className="font-bold text-dark text-sm leading-snug line-clamp-2 mt-0.5">{product.title}</h3>
         </div>
 
@@ -122,11 +132,58 @@ function ProductCard({ product }: { product: Product }) {
   )
 }
 
+function haversineDistance(lat1: number, lng1: number, lat2: number, lng2: number) {
+  const R = 6371000
+  const toRad = (deg: number) => (deg * Math.PI) / 180
+  const dLat = toRad(lat2 - lat1)
+  const dLng = toRad(lng2 - lng1)
+  const a = Math.sin(dLat / 2) ** 2 + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng / 2) ** 2
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
+}
+
+const PROVINCES: { name: string; lat: number; lng: number }[] = [
+  { name: 'Aceh', lat: 5.55, lng: 95.3172 },
+  { name: 'Sumatera Utara', lat: 3.5952, lng: 98.6722 },
+  { name: 'Sumatera Barat', lat: -0.9093, lng: 100.3616 },
+  { name: 'Riau', lat: 0.5073, lng: 101.4478 },
+  { name: 'Kepulauan Riau', lat: 0.8615, lng: 104.4591 },
+  { name: 'Jambi', lat: -1.6101, lng: 103.6131 },
+  { name: 'Bengkulu', lat: -3.8005, lng: 102.2606 },
+  { name: 'Sumatera Selatan', lat: -2.9761, lng: 104.7754 },
+  { name: 'Bangka Belitung', lat: -2.7411, lng: 106.4406 },
+  { name: 'Lampung', lat: -5.4501, lng: 105.2671 },
+  { name: 'Banten', lat: -6.1209, lng: 106.1503 },
+  { name: 'Jakarta', lat: -6.2088, lng: 106.8456 },
+  { name: 'Jawa Barat', lat: -6.8894, lng: 107.6098 },
+  { name: 'Jawa Tengah', lat: -7.1509, lng: 110.1403 },
+  { name: 'DI Yogyakarta', lat: -7.7971, lng: 110.3688 },
+  { name: 'Jawa Timur', lat: -7.5361, lng: 112.2384 },
+  { name: 'Bali', lat: -8.3405, lng: 115.092 },
+  { name: 'Nusa Tenggara Barat', lat: -8.5833, lng: 116.1167 },
+  { name: 'Nusa Tenggara Timur', lat: -10.1772, lng: 123.607 },
+  { name: 'Kalimantan Barat', lat: -0.0352, lng: 109.3302 },
+  { name: 'Kalimantan Tengah', lat: -1.4999, lng: 113.3833 },
+  { name: 'Kalimantan Selatan', lat: -3.3291, lng: 114.5911 },
+  { name: 'Kalimantan Timur', lat: -1.2458, lng: 116.8326 },
+  { name: 'Kalimantan Utara', lat: 3.5734, lng: 116.6386 },
+  { name: 'Sulawesi Utara', lat: 1.447, lng: 125.1852 },
+  { name: 'Gorontalo', lat: 0.5435, lng: 123.0568 },
+  { name: 'Sulawesi Tengah', lat: -0.896, lng: 121.3049 },
+  { name: 'Sulawesi Barat', lat: -2.8495, lng: 119.2505 },
+  { name: 'Sulawesi Selatan', lat: -5.1354, lng: 119.4238 },
+  { name: 'Sulawesi Tenggara', lat: -3.9692, lng: 122.5949 },
+  { name: 'Maluku', lat: -3.6553, lng: 128.1909 },
+  { name: 'Maluku Utara', lat: 0.6259, lng: 127.7098 },
+  { name: 'Papua', lat: -2.5333, lng: 140.7167 },
+  { name: 'Papua Barat', lat: -1.3362, lng: 133.174 },
+]
+
 const SORT_OPTIONS = [
   { value: 'newest', label: 'Terbaru' },
   { value: 'price_asc', label: 'Harga ↑' },
   { value: 'price_desc', label: 'Harga ↓' },
   { value: 'expired_soon', label: 'Segera Expired' },
+  { value: 'nearest', label: 'Terdekat' },
 ]
 
 export default function ExploreFoodsPage() {
@@ -140,20 +197,55 @@ export default function ExploreFoodsPage() {
   const [showFilter, setShowFilter] = useState(false)
   const [page, setPage] = useState(0)
   const [hasMore, setHasMore] = useState(true)
+  const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null)
+  const [locationName, setLocationName] = useState('')
+  const [showProvincePicker, setShowProvincePicker] = useState(false)
   const PAGE_SIZE = 12
+
+  useEffect(() => {
+    navigator.geolocation.getCurrentPosition(
+      (pos) => setUserLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
+      () => {}
+    )
+  }, [])
+
+  const selectProvince = (prov: typeof PROVINCES[number]) => {
+    setUserLocation({ lat: prov.lat, lng: prov.lng })
+    setLocationName(prov.name)
+    setShowProvincePicker(false)
+  }
 
   const fetchCategories = useCallback(async () => {
     const { data } = await supabase.from('categories').select('id, name, slug').order('name')
     setCategories(data || [])
   }, [supabase])
 
-  const fetchProducts = useCallback(async (reset = false) => {
+  const computeDistances = useCallback((items: Product[]) => {
+    if (!userLocation) return items
+    return items.map(p => {
+      const store = p.stores as any
+      if (store?.latitude && store?.longitude) {
+        return { ...p, distance: haversineDistance(userLocation.lat, userLocation.lng, store.latitude, store.longitude) }
+      }
+      return p
+    })
+  }, [userLocation])
+
+  const sortedByNearest = useCallback((items: Product[]) => {
+    const withDist = computeDistances(items)
+    if (sortBy === 'nearest') {
+      withDist.sort((a, b) => (a.distance ?? Infinity) - (b.distance ?? Infinity))
+    }
+    return withDist
+  }, [sortBy, userLocation])
+
+  const fetchProducts = useCallback(async (reset = false, pageOverride?: number) => {
     setLoading(true)
-    const currentPage = reset ? 0 : page
+    const currentPage = pageOverride ?? (reset ? 0 : page)
     try {
       let query = supabase
         .from('products')
-        .select('id, title, original_price, discount_price, stock, expired_at, thumbnail_url, is_active, stores(id, store_name, logo_url), categories(name, slug)')
+        .select('id, title, original_price, discount_price, stock, expired_at, thumbnail_url, is_active, stores(id, store_name, logo_url, latitude, longitude), categories(name, slug)')
         .eq('is_active', true)
         .gt('stock', 0)
         .gt('expired_at', new Date().toISOString())
@@ -171,13 +263,12 @@ export default function ExploreFoodsPage() {
       const { data, error } = await query
       if (error) throw error
 
-      console.log('Foods raw data:', data)
-      const items = (data || []) as unknown as Product[]
+      const items = sortedByNearest((data || []) as unknown as Product[])
       if (reset) {
         setProducts(items)
         setPage(0)
       } else {
-        setProducts(prev => [...prev, ...items])
+        setProducts(prev => sortedByNearest([...prev, ...items]))
       }
       setHasMore(items.length === PAGE_SIZE)
     } catch (e) {
@@ -186,7 +277,7 @@ export default function ExploreFoodsPage() {
     } finally {
       setLoading(false)
     }
-  }, [supabase, search, selectedCategory, sortBy, page])
+  }, [supabase, search, selectedCategory, sortBy, page, sortedByNearest])
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -200,10 +291,10 @@ export default function ExploreFoodsPage() {
       fetchProducts(true)
     }, 300)
     return () => clearTimeout(t)
-  }, [search, selectedCategory, sortBy]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [search, selectedCategory, sortBy, userLocation]) // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
-    <div className="min-h-full bg-[#F3F6F8]">
+    <div className="min-h-full bg-cream-bg">
       {/* Top Search Bar */}
       <div className="bg-white px-4 pt-safe pb-3 sticky top-0 z-20 shadow-sm rounded-b-3xl">
         <div className="flex items-center gap-2 mb-3 mt-4">
@@ -223,12 +314,49 @@ export default function ExploreFoodsPage() {
             )}
           </div>
           <button
+            onClick={() => setShowProvincePicker(!showProvincePicker)}
+            className={`p-2.5 rounded-xl border transition-all relative ${showProvincePicker ? 'bg-primary-teal border-primary-teal text-white' : 'border-dark/10 text-primary-teal hover:bg-cream-bg'}`}
+            title={locationName || 'Pilih provinsi'}
+          >
+            <MapPin className="w-4 h-4" />
+            {userLocation && <span className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-emerald-500 rounded-full border-2 border-white" />}
+          </button>
+          <button
             onClick={() => setShowFilter(!showFilter)}
             className={`p-2.5 rounded-xl border transition-all ${showFilter ? 'bg-primary-teal border-primary-teal text-white' : 'border-dark/10 text-dark/60 hover:bg-cream-bg'}`}
           >
             <SlidersHorizontal className="w-4 h-4" />
           </button>
         </div>
+
+        {/* Province Picker */}
+        {showProvincePicker && (
+          <div className="mb-3">
+            <div className="flex items-center justify-between mb-2">
+              <p className="text-xs font-bold text-dark/50 uppercase tracking-wider">Pilih Provinsi</p>
+              {locationName && (
+                <span className="text-[10px] font-bold text-primary-teal bg-primary-teal/10 px-2 py-0.5 rounded-full">
+                  {locationName}
+                </span>
+              )}
+            </div>
+            <div className="grid grid-cols-2 gap-1.5 max-h-48 overflow-y-auto bg-white rounded-2xl border border-dark/5 shadow-sm p-2">
+              {PROVINCES.map(prov => (
+                <button
+                  key={prov.name}
+                  onClick={() => selectProvince(prov)}
+                  className={`text-left px-3 py-2 rounded-xl text-xs font-semibold transition-all ${
+                    locationName === prov.name
+                      ? 'bg-primary-teal text-white'
+                      : 'text-dark/70 hover:bg-cream-bg'
+                  }`}
+                >
+                  {prov.name}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Categories */}
         <div className="flex gap-2 overflow-x-auto scrollbar-hide pb-1">
@@ -307,7 +435,7 @@ export default function ExploreFoodsPage() {
             {/* Load more */}
             {hasMore && (
               <button
-                onClick={() => { setPage(prev => prev + 1); fetchProducts(false) }}
+                onClick={() => { const next = page + 1; setPage(next); fetchProducts(false, next) }}
                 disabled={loading}
                 className="w-full mt-5 py-3 rounded-2xl border border-dark/10 text-sm font-bold text-dark/60 hover:bg-white hover:shadow-sm transition-all disabled:opacity-50"
               >

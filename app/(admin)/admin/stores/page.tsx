@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Search, Filter, CheckCircle, XCircle, Eye, MapPin, Clock, Store as StoreIcon, Loader2, X, Phone, Mail, Clock3, AlertTriangle } from 'lucide-react'
+import { Search, Filter, CheckCircle, XCircle, Eye, MapPin, Clock, Store as StoreIcon, Loader2, X, Mail, Clock3, AlertTriangle } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { toast } from 'react-hot-toast'
 import Image from 'next/image'
@@ -13,7 +13,6 @@ interface StoreItem {
   name: string
   owner: string
   owner_email: string
-  owner_phone: string | null
   address: string
   description: string | null
   city: string
@@ -53,7 +52,7 @@ export default function AdminStoresPage() {
     try {
       const { data: storesData, error } = await supabase
         .from('stores')
-        .select('id, store_name, description, address, is_verified, verification_status, rejection_reason, created_at, logo_url, banner_url, open_time, close_time, users ( name, email, phone )')
+        .select('id, store_name, description, address, is_verified, verification_status, rejection_reason, created_at, logo_url, banner_url, open_time, close_time, users ( name, email )')
         .order('created_at', { ascending: false })
       if (error) throw error
 
@@ -69,7 +68,6 @@ export default function AdminStoresPage() {
           name: s.store_name,
           owner: user.name || 'Unknown',
           owner_email: user.email || '-',
-          owner_phone: user.phone || null,
           address: s.address,
           description: s.description,
           city: s.address?.split(',')[0] || s.address || '-',
@@ -209,7 +207,7 @@ export default function AdminStoresPage() {
       <div className="rounded-3xl ring-1 ring-[#E5E7EB] bg-white shadow-sm overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full min-w-[900px]">
-            <thead className="bg-[#F8FAFC]">
+            <thead className="bg-cream-bg">
               <tr>
                 {['Toko', 'Lokasi', 'Status', 'Produk / Order', 'Bergabung', 'Aksi'].map((h, i) => (
                   <th key={h} className={`px-6 py-4 text-xs font-bold text-[#6A7686] uppercase ${i === 5 ? 'text-right' : 'text-left'}`}>
@@ -269,8 +267,8 @@ export default function AdminStoresPage() {
                       </div>
                     </td>
                     <td className="px-6 py-4 text-sm text-[#6A7686]">
-                      <span className="font-bold text-[#080C1A]">{store.products}</span> produk /{' '}
-                      <span className="font-bold text-[#080C1A]">{store.orders}</span> order
+                      <span className="font-bold text-dark">{store.products}</span> produk /{' '}
+                      <span className="font-bold text-dark">{store.orders}</span> order
                     </td>
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-1.5 text-xs text-[#6A7686]">
@@ -367,12 +365,6 @@ export default function AdminStoresPage() {
                   <Mail className="size-4 text-[#0F766E] shrink-0" />
                   <span className="text-[#6A7686]">{detailStore.owner_email}</span>
                 </div>
-                {detailStore.owner_phone && (
-                  <div className="flex items-center gap-2.5 text-sm">
-                    <Phone className="size-4 text-[#0F766E] shrink-0" />
-                    <span className="text-[#6A7686]">{detailStore.owner_phone}</span>
-                  </div>
-                )}
                 {detailStore.open_time && (
                   <div className="flex items-center gap-2.5 text-sm">
                     <Clock3 className="size-4 text-[#0F766E] shrink-0" />
@@ -391,15 +383,15 @@ export default function AdminStoresPage() {
 
               <div className="flex gap-3 mb-5">
                 <div className="flex-1 bg-[#F3F6F8] rounded-xl px-4 py-3 text-center">
-                  <p className="text-lg font-bold text-[#080C1A]">{detailStore.products}</p>
+                  <p className="text-lg font-bold text-dark">{detailStore.products}</p>
                   <p className="text-xs text-[#6A7686]">Produk</p>
                 </div>
                 <div className="flex-1 bg-[#F3F6F8] rounded-xl px-4 py-3 text-center">
-                  <p className="text-lg font-bold text-[#080C1A]">{detailStore.orders}</p>
+                  <p className="text-lg font-bold text-dark">{detailStore.orders}</p>
                   <p className="text-xs text-[#6A7686]">Order</p>
                 </div>
                 <div className="flex-1 bg-[#F3F6F8] rounded-xl px-4 py-3 text-center">
-                  <p className="text-lg font-bold text-[#080C1A]">{detailStore.joinedAt}</p>
+                  <p className="text-lg font-bold text-dark">{detailStore.joinedAt}</p>
                   <p className="text-xs text-[#6A7686]">Bergabung</p>
                 </div>
               </div>

@@ -25,8 +25,8 @@ export default function CustomerLayout({ children }: { children: React.ReactNode
   const showBottomNav = navItems.some(item => item.href === pathname)
 
   return (
-    <div className="h-[100dvh] bg-gray-100 flex justify-center font-sans text-[#080C1A] overflow-hidden">
-      <div className="w-full max-w-md bg-[#F3F6F8] h-full relative shadow-2xl flex flex-col overflow-hidden">
+    <div className="h-[100dvh] bg-cream-bg flex justify-center font-sans text-dark overflow-hidden">
+      <div className="w-full max-w-md bg-white h-full relative shadow-2xl flex flex-col overflow-hidden">
         <main className="flex-1 overflow-y-auto scrollbar-hide pb-4">
           {children}
         </main>

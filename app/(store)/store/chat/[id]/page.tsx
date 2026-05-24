@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useEffect, useState, useRef } from 'react'
+import React, { useEffect, useState, useRef, useCallback } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useParams, useRouter } from 'next/navigation'
 import { Send, ArrowLeft, User } from 'lucide-react'
@@ -35,6 +35,23 @@ export default function StoreChatDetailPage() {
   const [sending, setSending] = useState(false)
   const [loading, setLoading] = useState(true)
   const bottomRef = useRef<HTMLDivElement>(null)
+  const userIdRef = useRef('')
+  const pollingRef = useRef<NodeJS.Timeout | null>(null)
+
+  const fetchMessages = useCallback(async () => {
+    const { data } = await supabase
+      .from('messages')
+      .select('*')
+      .eq('conversation_id', conversationId)
+      .order('created_at', { ascending: true })
+    if (data) {
+      setMessages(data)
+      const unread = data.filter(m => !m.is_read && m.sender_id !== userIdRef.current)
+      if (unread.length > 0) {
+        await supabase.from('messages').update({ is_read: true }).in('id', unread.map(m => m.id))
+      }
+    }
+  }, [supabase, conversationId])
 
   useEffect(() => {
     const init = async () => {
@@ -42,6 +59,7 @@ export default function StoreChatDetailPage() {
         const { data: { user } } = await supabase.auth.getUser()
         if (!user) { router.push('/login'); return }
         setUserId(user.id)
+        userIdRef.current = user.id
 
         const { data: convData } = await supabase
           .from('conversations')
@@ -50,19 +68,7 @@ export default function StoreChatDetailPage() {
           .single()
         if (convData) setConv(convData as any)
 
-        const { data: msgs } = await supabase
-          .from('messages')
-          .select('*')
-          .eq('conversation_id', conversationId)
-          .order('created_at', { ascending: true })
-        setMessages(msgs || [])
-
-        // Mark as read
-        await supabase
-          .from('messages')
-          .update({ is_read: true })
-          .eq('conversation_id', conversationId)
-          .neq('sender_id', user.id)
+        await fetchMessages()
       } catch (err: any) {
         toast.error(`Gagal memuat percakapan: ${err?.message}`)
       } finally {
@@ -72,19 +78,39 @@ export default function StoreChatDetailPage() {
     init()
 
     const channel = supabase
-      .channel(`store-chat-${conversationId}`)
-      .on('postgres_changes',
-        { event: 'INSERT', schema: 'public', table: 'messages', filter: `conversation_id=eq.${conversationId}` },
+      .channel(`store-chat-detail-${conversationId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'messages',
+          filter: `conversation_id=eq.${conversationId}`,
+        },
         (payload) => {
-          setMessages(prev => [...prev, payload.new as Message])
-          // mark incoming as read immediately
-          supabase.from('messages').update({ is_read: true }).eq('id', (payload.new as any).id)
+          setMessages(prev => {
+            if (prev.find(m => m.id === (payload.new as Message).id)) return prev
+            return [...prev, payload.new as Message]
+          })
+          if ((payload.new as Message).sender_id !== userIdRef.current) {
+            supabase.from('messages').update({ is_read: true }).eq('id', (payload.new as Message).id)
+          }
         }
       )
-      .subscribe()
+      .subscribe((status) => {
+        if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+          if (!pollingRef.current) pollingRef.current = setInterval(fetchMessages, 3000)
+        }
+      })
 
-    return () => { supabase.removeChannel(channel) }
-  }, [supabase, conversationId, router])
+    // Safe polling fallback every 5s
+    pollingRef.current = setInterval(fetchMessages, 5000)
+
+    return () => {
+      supabase.removeChannel(channel)
+      if (pollingRef.current) clearInterval(pollingRef.current)
+    }
+  }, [supabase, conversationId, router, fetchMessages])
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -92,8 +118,20 @@ export default function StoreChatDetailPage() {
 
   const handleSend = async () => {
     const trimmed = text.trim()
-    if (!trimmed) return
+    if (!trimmed || !userId) return
     setSending(true)
+
+    const optimistic: Message = {
+      id: `temp-${Date.now()}`,
+      sender_id: userId,
+      message: trimmed,
+      image_url: null,
+      is_read: false,
+      created_at: new Date().toISOString(),
+    }
+    setMessages(prev => [...prev, optimistic])
+    setText('')
+
     try {
       const { error } = await supabase.from('messages').insert({
         conversation_id: conversationId,
@@ -101,9 +139,16 @@ export default function StoreChatDetailPage() {
         message: trimmed,
         is_read: false,
       })
-      if (error) throw error
-      setText('')
+      if (error) {
+        setMessages(prev => prev.filter(m => m.id !== optimistic.id))
+        setText(trimmed)
+        toast.error('Gagal mengirim pesan.')
+      } else {
+        await fetchMessages()
+      }
     } catch {
+      setMessages(prev => prev.filter(m => m.id !== optimistic.id))
+      setText(trimmed)
       toast.error('Gagal mengirim pesan.')
     } finally {
       setSending(false)
@@ -112,29 +157,41 @@ export default function StoreChatDetailPage() {
 
   const customer = (conv?.users) as any
 
+  const formatDateSep = (dateStr: string) => {
+    const d = new Date(dateStr)
+    const today = new Date()
+    const yesterday = new Date(today)
+    yesterday.setDate(yesterday.getDate() - 1)
+    if (d.toDateString() === today.toDateString()) return 'Hari ini'
+    if (d.toDateString() === yesterday.toDateString()) return 'Kemarin'
+    return d.toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
+  }
+
+  const shouldShowDateSep = (idx: number) => {
+    if (idx === 0) return true
+    const curr = new Date(messages[idx].created_at).toDateString()
+    const prev = new Date(messages[idx - 1].created_at).toDateString()
+    return curr !== prev
+  }
+
   return (
     <div className="flex flex-col h-[calc(100vh-120px)] bg-[#F8FAFC] rounded-2xl overflow-hidden border border-dark/5 shadow-sm">
       {/* Header */}
       <div className="bg-white border-b border-dark/5 px-5 py-4 flex items-center gap-3 shrink-0 shadow-sm">
-        <button
-          onClick={() => router.back()}
-          className="p-2 rounded-xl hover:bg-[#F3F6F8] text-dark/60 transition-colors"
-        >
+        <button onClick={() => router.back()} className="p-2 rounded-xl hover:bg-[#F3F6F8] text-dark/60 transition-colors">
           <ArrowLeft className="w-5 h-5" />
         </button>
         <div className="w-10 h-10 rounded-full bg-primary-orange/10 flex items-center justify-center shrink-0">
           <User className="w-5 h-5 text-primary-orange" />
         </div>
         <div className="flex-1 min-w-0">
-          <h2 className="font-bold text-sm text-dark truncate">
-            {loading ? '...' : customer?.name || 'Pelanggan'}
-          </h2>
+          <h2 className="font-bold text-sm text-dark truncate">{loading ? '...' : customer?.name || 'Pelanggan'}</h2>
           <p className="text-[10px] text-primary-teal font-semibold">● Online</p>
         </div>
       </div>
 
       {/* Messages */}
-      <div className="flex-1 overflow-y-auto px-5 py-5 space-y-3 scrollbar-hide">
+      <div className="flex-1 overflow-y-auto px-5 py-5 scrollbar-hide">
         {loading ? (
           <div className="flex items-center justify-center h-full">
             <div className="w-8 h-8 border-2 border-primary-teal border-t-transparent rounded-full animate-spin" />
@@ -148,29 +205,42 @@ export default function StoreChatDetailPage() {
             <p className="text-xs text-dark/35 mt-1">Balas pertanyaan pelanggan di sini</p>
           </div>
         ) : (
-          messages.map(msg => {
-            const isMe = msg.sender_id === userId
-            return (
-              <div key={msg.id} className={`flex ${isMe ? 'justify-end' : 'justify-start'}`}>
-                <div className={`max-w-[72%] rounded-2xl px-4 py-2.5 shadow-sm ${
-                  isMe
-                    ? 'bg-primary-teal text-white rounded-br-sm'
-                    : 'bg-white border border-dark/5 text-dark rounded-bl-sm'
-                }`}>
-                  {msg.image_url && (
-                    <div className="relative w-full aspect-video rounded-xl overflow-hidden mb-2">
-                      <Image src={msg.image_url} alt="foto" fill sizes="300px" className="object-cover" />
+          <>
+            {messages.map((msg, idx) => {
+              const isMe = msg.sender_id === userId
+              const isTemp = msg.id.startsWith('temp-')
+              return (
+                <React.Fragment key={msg.id}>
+                  {shouldShowDateSep(idx) && (
+                    <div className="flex justify-center py-3">
+                      <span className="text-[11px] font-bold text-dark/40 bg-white/80 backdrop-blur-sm px-3 py-1 rounded-full border border-dark/5 shadow-sm">
+                        {formatDateSep(msg.created_at)}
+                      </span>
                     </div>
                   )}
-                  <p className="text-sm leading-relaxed break-words">{msg.message}</p>
-                  <p className={`text-[10px] mt-1 ${isMe ? 'text-white/60' : 'text-dark/40'} text-right`}>
-                    {new Date(msg.created_at).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}
-                    {isMe && <span className="ml-1">{msg.is_read ? ' ✓✓' : ' ✓'}</span>}
-                  </p>
-                </div>
-              </div>
-            )
-          })
+                  <div className={`flex mb-3 ${isMe ? 'justify-end' : 'justify-start'}`}>
+                    <div className={`max-w-[72%] rounded-2xl px-4 py-2.5 shadow-sm transition-opacity ${isTemp ? 'opacity-60' : 'opacity-100'} ${
+                      isMe
+                        ? 'bg-primary-teal text-white rounded-br-sm'
+                        : 'bg-white border border-dark/5 text-dark rounded-bl-sm'
+                    }`}>
+                      {msg.image_url && (
+                        <div className="relative w-full aspect-video rounded-xl overflow-hidden mb-2">
+                          <Image src={msg.image_url} alt="foto" fill sizes="300px" className="object-cover" />
+                        </div>
+                      )}
+                      <p className="text-sm leading-relaxed break-words">{msg.message}</p>
+                      <p className={`text-[10px] mt-1 ${isMe ? 'text-white/60' : 'text-dark/40'} text-right`}>
+                        {new Date(msg.created_at).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}
+                        {isMe && !isTemp && <span className="ml-1">{msg.is_read ? ' ✓✓' : ' ✓'}</span>}
+                        {isTemp && <span className="ml-1">⏳</span>}
+                      </p>
+                    </div>
+                  </div>
+                </React.Fragment>
+              )
+            })}
+          </>
         )}
         <div ref={bottomRef} />
       </div>

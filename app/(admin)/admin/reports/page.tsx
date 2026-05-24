@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
 import { BarChart2, TrendingUp, ShoppingBag, Store, Users, Download, Loader2 } from 'lucide-react'
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
@@ -75,13 +76,20 @@ export default function AdminReportsPage() {
         supabase.from('orders').select(`total_price, created_at, status, store_id, stores(store_name)`)
       ])
 
-      const orders = ordersData || []
-      const completedOrders = orders.filter(o => o.status === 'selesai')
-      const totalRev = completedOrders.reduce((acc, o) => acc + o.total_price, 0)
+      const ordersDataArr: any[] = ordersData || []
+      const completedOrders: any[] = []
+      const totalRev = ordersDataArr.reduce((acc, o) => {
+        if (o.status === 'selesai') {
+          completedOrders.push(o)
+          return acc + o.total_price
+        }
+        return acc
+      }, 0)
       
+      // Set stats now
       setStats({
         revenue: totalRev,
-        orders: orders.length,
+        orders: ordersDataArr.length,
         stores: storesCount || 0,
         users: usersCount || 0
       })
@@ -96,7 +104,7 @@ export default function AdminReportsPage() {
         groupedData[months[i]] = { month: months[i], revenue: 0, orders: 0, stores: 0 }
       }
 
-      completedOrders.forEach(o => {
+      ;(completedOrders as any[]).forEach((o: any) => {
         const d = new Date(o.created_at)
         if (d.getFullYear() === currentYear) {
           groupedData[months[d.getMonth()]].revenue += o.total_price
@@ -104,7 +112,7 @@ export default function AdminReportsPage() {
         }
       })
 
-      (storesData || []).forEach(s => {
+      ;(storesData || []).forEach((s: any) => {
         const d = new Date(s.created_at)
         if (d.getFullYear() === currentYear) {
           groupedData[months[d.getMonth()]].stores += 1
@@ -115,8 +123,7 @@ export default function AdminReportsPage() {
 
       // Calculate Top Stores
       const storeStats: Record<string, TopStore> = {}
-      completedOrders.forEach(o => {
-        // @ts-ignore
+      ;(completedOrders as any[]).forEach((o: any) => {
         const sName = o.stores?.store_name || 'Unknown'
         if (!storeStats[sName]) {
           storeStats[sName] = { name: sName, orders: 0, revenue: 0 }
@@ -142,7 +149,7 @@ export default function AdminReportsPage() {
       // Sheet 1: Ringkasan
       const summaryData = [
         ['Metrik', 'Nilai'],
-        ['Total Revenue', `Rp ${(stats.revenue / 1000000).toFixed(1)}M`],
+        ['Total Revenue', `Rp ${stats.revenue.toLocaleString('id-ID')}`],
         ['Total Orders', stats.orders],
         ['Toko Aktif', stats.stores],
         ['Total Users', stats.users],
@@ -198,7 +205,7 @@ export default function AdminReportsPage() {
 
       {/* Stats */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-        <StatCard icon={TrendingUp} label="Total Revenue" value={`Rp ${(stats.revenue / 1000000).toFixed(1)}M`} sub="Tahun ini" color="#0F766E" />
+        <StatCard icon={TrendingUp} label="Total Revenue" value={`Rp ${stats.revenue.toLocaleString('id-ID')}`} sub="Tahun ini" color="#0F766E" />
         <StatCard icon={ShoppingBag} label="Total Order" value={stats.orders.toString()} sub="Tahun ini" color="#FF8A00" />
         <StatCard icon={Store} label="Toko Aktif" value={stats.stores.toString()} sub="Verified" color="#0EA5E9" />
         <StatCard icon={Users} label="Total User" value={stats.users.toString()} sub="Semua role" color="#EF4444" />
@@ -258,7 +265,7 @@ export default function AdminReportsPage() {
               <div className="flex-1 min-w-0">
                 <div className="flex items-center justify-between mb-1">
                   <span className="font-semibold text-sm truncate">{store.name}</span>
-                  <span className="text-sm font-bold text-[#0F766E] shrink-0 ml-2">Rp {(store.revenue / 1000000).toFixed(1)}M</span>
+                  <span className="text-sm font-bold text-[#0F766E] shrink-0 ml-2">Rp {store.revenue.toLocaleString('id-ID')}</span>
                 </div>
                 <div className="h-2 bg-[#F3F6F8] rounded-full overflow-hidden">
                   <div

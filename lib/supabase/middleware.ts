@@ -76,5 +76,26 @@ export async function updateSession(request: NextRequest) {
     return NextResponse.redirect(redirectUrl)
   }
 
+  // Sudah login tapi akses /dashboard → redirect sesuai role (server-side fallback)
+  if (user && pathname === '/dashboard') {
+    const { data: profile } = await supabase
+      .from('users')
+      .select('role')
+      .eq('id', user.id)
+      .single()
+
+    const role = profile?.role || user.user_metadata?.role
+    if (role === 'store') {
+      const redirectUrl = request.nextUrl.clone()
+      redirectUrl.pathname = '/store/dashboard'
+      return NextResponse.redirect(redirectUrl)
+    }
+    if (role === 'admin') {
+      const redirectUrl = request.nextUrl.clone()
+      redirectUrl.pathname = '/admin/dashboard'
+      return NextResponse.redirect(redirectUrl)
+    }
+  }
+
   return supabaseResponse
 }

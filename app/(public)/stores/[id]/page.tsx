@@ -113,7 +113,7 @@ export default function StoreDetailPage() {
       const { data } = await supabase.from('favorites')
         .insert({ customer_id: userId, store_id: storeId }).select().single()
       setIsFav(true); setFavId(data?.id || null)
-      toast.success('Toko ditambahkan ke favorit! 🌟')
+      toast.success('Toko ditambahkan ke favorit!')
     }
   }
 
@@ -248,7 +248,9 @@ export default function StoreDetailPage() {
 
         {products.length === 0 ? (
           <div className="bg-white rounded-2xl border border-dark/5 shadow-sm p-8 text-center">
-            <p className="text-4xl mb-3">🍱</p>
+            <div className="w-14 h-14 rounded-2xl bg-primary-orange/10 flex items-center justify-center mx-auto mb-4">
+              <StoreIcon className="w-7 h-7 text-primary-orange" />
+            </div>
             <p className="font-bold text-dark/50 text-sm">Belum ada menu aktif</p>
             <p className="text-xs text-dark/35 mt-1">Toko belum mengupload makanan saat ini.</p>
           </div>
