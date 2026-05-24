@@ -7,6 +7,7 @@ import { usePathname } from 'next/navigation'
 import { Menu, X, Leaf, Search, Store } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import type { User } from '@supabase/supabase-js'
+import NotificationBell from '@/components/notifications/NotificationBell'
 
 const navLinks = [
   { label: 'Beranda', href: '/' },
@@ -98,14 +99,17 @@ export default function Navbar() {
               ))}
             </div>
 
-            <div className="hidden md:flex items-center gap-3">
+            <div className="hidden md:flex items-center gap-2">
               {user ? (
-                <Link
-                  href={getDashboardUrl()}
-                  className="px-5 py-2 rounded-lg bg-[#1B4332] text-white text-sm font-bold hover:bg-[#2D6A4F] transition-all shadow-sm"
-                >
-                  Dashboard
-                </Link>
+                <>
+                  <NotificationBell />
+                  <Link
+                    href={getDashboardUrl()}
+                    className="px-5 py-2 rounded-lg bg-[#1B4332] text-white text-sm font-bold hover:bg-[#2D6A4F] transition-all shadow-sm"
+                  >
+                    Dashboard
+                  </Link>
+                </>
               ) : (
                 <>
                   <Link
@@ -124,13 +128,16 @@ export default function Navbar() {
               )}
             </div>
 
-            <button
-              onClick={() => setMobileOpen(true)}
-              className="md:hidden p-2 text-[#2D6A4F] hover:bg-[#2D6A4F]/5 rounded-lg transition-all"
-              aria-label="Buka menu"
-            >
-              <Menu className="w-6 h-6" />
-            </button>
+            <div className="flex items-center gap-2 md:hidden">
+              {user && <NotificationBell />}
+              <button
+                onClick={() => setMobileOpen(true)}
+                className="p-2 text-[#2D6A4F] hover:bg-[#2D6A4F]/5 rounded-lg transition-all"
+                aria-label="Buka menu"
+              >
+                <Menu className="w-6 h-6" />
+              </button>
+            </div>
           </div>
         </div>
       </nav>

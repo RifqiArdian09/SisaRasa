@@ -14,6 +14,6 @@ export const config = {
      * - favicon.ico (favicon file)
      * - public files (images, icons, manifest, sw.js)
      */
-    '/((?!_next/static|_next/image|favicon.ico|manifest.json|sw.js|icons|images|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
+    '/((?!_next/static|_next/image|favicon.ico|manifest.json|sw\\.js|firebase-messaging-sw\\.js|icons|images|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
   ],
 }
