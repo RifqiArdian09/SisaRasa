@@ -11,10 +11,10 @@ import NotificationBell from '@/components/notifications/NotificationBell'
 
 const navLinks = [
   { label: 'Beranda', href: '/' },
-  { label: 'Jelajahi', href: '/foods' },
+  { label: 'Tentang', href: '/#tentang' },
   { label: 'Cara Kerja', href: '/#cara-kerja' },
-  { label: 'FAQ', href: '/#faq' },
-  { label: 'Untuk UMKM', href: '/register?role=store' },
+  { label: 'Keuntungan', href: '/#keuntungan' },
+  { label: 'Makanan', href: '/#makanan' },
 ]
 
 export default function Navbar() {

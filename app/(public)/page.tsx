@@ -233,11 +233,11 @@ const faqs = [
 ]
 
 const navItems = [
-  { label: 'Beranda', icon: Home, href: '/' },
+  { label: 'Beranda', icon: Home, href: '#beranda' },
   { label: 'Tentang', icon: Info, href: '#tentang' },
-  { label: 'Keuntungan', icon: ShieldCheck, href: '#keuntungan' },
   { label: 'Cara Kerja', icon: LayoutList, href: '#cara-kerja' },
-  { label: 'Makanan', icon: ShoppingBag, href: '/foods' },
+  { label: 'Keuntungan', icon: ShieldCheck, href: '#keuntungan' },
+  { label: 'Makanan', icon: ShoppingBag, href: '#makanan' },
   { label: 'FAQ', icon: HelpCircle, href: '#faq' },
 ]
 
@@ -429,7 +429,7 @@ export default function LandingPage() {
       )}
 
       {/* ===== HERO ===== */}
-      <section className="relative pt-32 pb-24 lg:pt-40 lg:pb-32 overflow-hidden lg:min-h-[720px] xl:min-h-[800px] flex items-center">
+      <section id="beranda" className="relative pt-32 pb-24 lg:pt-40 lg:pb-32 overflow-hidden lg:min-h-[720px] xl:min-h-[800px] flex items-center">
         
         {/* Desktop BG - anchored right */}
         <div className="hidden lg:block absolute inset-0 z-0">
@@ -821,7 +821,7 @@ export default function LandingPage() {
       </section>
 
       {/* ===== MAKANAN SURPLUS TERBARU ===== */}
-      <section className="py-16 sm:py-20 bg-cream-bg/20 border-t border-slate-100">
+      <section id="makanan" className="py-16 sm:py-20 bg-cream-bg/20 border-t border-slate-100">
         <div className="mx-auto max-w-7xl px-6 lg:px-12">
           
           <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-12">
@@ -1059,7 +1059,7 @@ export default function LandingPage() {
               <div>
                 <h3 className="font-bold text-sm text-[#1A1A1A] mb-5 font-poppins">Navigasi</h3>
                 <ul className="space-y-3.5">
-                  {['Beranda', 'Tentang', 'Keuntungan', 'Cara Kerja', 'Makanan'].map((l) => (
+                  {['Beranda', 'Tentang', 'Cara Kerja', 'Keuntungan', 'Makanan'].map((l) => (
                     <li key={l}>
                       <Link href={l === 'Beranda' ? '/' : l === 'Makanan' ? '/foods' : `#${l.toLowerCase().replace(/\s/g, '-')}`} className="text-sm text-[#1A1A1A]/60 hover:text-primary-teal transition-colors">{l}</Link>
                     </li>

@@ -84,19 +84,19 @@ function LoginContent() {
     <div className="flex min-h-screen bg-white font-sans">
 
       {/* ── KIRI: Brand Panel ── */}
-      <div className="relative hidden w-1/2 overflow-hidden lg:flex flex-col bg-gradient-to-br from-[#2E7D32]/5 via-[#EBF7F5] to-white">
+      <div className="relative hidden w-1/2 overflow-hidden lg:flex flex-col bg-gradient-to-br from-primary-teal/5 via-[#EBF7F5] to-white">
         <div className="relative z-10 flex items-center gap-3 p-10">
           <div className="relative w-10 h-10">
             <Image src="/images/logo.png" alt="SisaRasa Logo" width={40} height={40} className="object-contain" />
           </div>
-          <span className="text-2xl font-poppins font-extrabold text-[#2E7D32] tracking-tight">SisaRasa</span>
+          <span className="text-2xl font-poppins font-extrabold text-primary-teal tracking-tight">SisaRasa</span>
         </div>
 
         <div className="relative z-10 flex-1 flex flex-col justify-center px-10 pb-16">
           <div className="max-w-md">
-            <div className="inline-flex items-center gap-2 bg-[#2E7D32]/10 rounded-full px-4 py-1.5 mb-6">
-              <Leaf className="w-4 h-4 text-[#2E7D32]" />
-              <span className="text-[#2E7D32] text-xs font-bold font-poppins">#SelamatkanMakanan</span>
+            <div className="inline-flex items-center gap-2 bg-primary-teal/10 rounded-full px-4 py-1.5 mb-6">
+              <Leaf className="w-4 h-4 text-primary-teal" />
+              <span className="text-primary-teal text-xs font-bold font-poppins">#SelamatkanMakanan</span>
             </div>
             <h2 className="text-3xl font-poppins font-extrabold text-[#1A1A1A] leading-tight mb-4">
               Selamatkan Makanan,<br />Hemat Pengeluaran.
@@ -108,7 +108,7 @@ function LoginContent() {
         </div>
 
         {/* Decorative element */}
-        <div className="absolute right-0 bottom-0 w-64 h-64 bg-[#2E7D32]/5 rounded-full -translate-y-1/4 translate-x-1/4" />
+        <div className="absolute right-0 bottom-0 w-64 h-64 bg-primary-teal/5 rounded-full -translate-y-1/4 translate-x-1/4" />
         <div className="absolute left-0 top-1/3 w-48 h-48 bg-[#FF8A00]/5 rounded-full" />
       </div>
 
@@ -121,7 +121,7 @@ function LoginContent() {
             <div className="relative w-8 h-8">
               <Image src="/images/logo.png" alt="SisaRasa" width={32} height={32} className="object-contain" />
             </div>
-            <span className="font-poppins font-bold text-[#2E7D32] text-lg">SisaRasa</span>
+            <span className="font-poppins font-bold text-primary-teal text-lg">SisaRasa</span>
           </div>
 
           <div className="mb-8">
@@ -145,7 +145,7 @@ function LoginContent() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="nama@email.com"
-                className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-white text-[#1A1A1A] placeholder-[#1A1A1A]/30 focus:border-[#2E7D32] focus:ring-2 focus:ring-[#2E7D32]/10 transition-all outline-none text-sm"
+                className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-white text-[#1A1A1A] placeholder-[#1A1A1A]/30 focus:border-primary-teal focus:ring-2 focus:ring-primary-teal/10 transition-all outline-none text-sm"
               />
             </div>
 
@@ -161,7 +161,7 @@ function LoginContent() {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="••••••••"
-                  className="w-full px-4 py-3 pr-11 rounded-xl border border-slate-200 bg-white text-[#1A1A1A] placeholder-[#1A1A1A]/30 focus:border-[#2E7D32] focus:ring-2 focus:ring-[#2E7D32]/10 transition-all outline-none text-sm"
+                  className="w-full px-4 py-3 pr-11 rounded-xl border border-slate-200 bg-white text-[#1A1A1A] placeholder-[#1A1A1A]/30 focus:border-primary-teal focus:ring-2 focus:ring-primary-teal/10 transition-all outline-none text-sm"
                 />
                 <button
                   type="button"
@@ -176,7 +176,7 @@ function LoginContent() {
             <button
               type="submit"
               disabled={loading}
-              className="w-full py-3.5 px-4 rounded-xl bg-[#2E7D32] hover:bg-[#236026] text-white font-poppins font-bold text-sm shadow-md hover:-translate-y-0.5 active:translate-y-0 transition-all disabled:opacity-50 disabled:pointer-events-none flex justify-center items-center gap-2"
+              className="w-full py-3.5 px-4 rounded-xl bg-primary-teal hover:bg-[#0b5c56] text-white font-poppins font-bold text-sm shadow-md hover:-translate-y-0.5 active:translate-y-0 transition-all disabled:opacity-50 disabled:pointer-events-none flex justify-center items-center gap-2"
             >
               {loading ? <Spinner /> : 'Masuk ke Akun'}
             </button>
