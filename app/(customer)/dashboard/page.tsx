@@ -177,12 +177,12 @@ export default function CustomerDashboardPage() {
       <div className="px-5 -mt-6 relative z-10">
         <div className="bg-white rounded-3xl shadow-xl shadow-dark/5 border border-dark/5 p-4 flex justify-between">
           {[
-            { label: 'Pesanan Selesai', value: stats.totalOrders, icon: ShoppingBag, color: 'text-primary-teal' },
-            { label: 'Porsi Terselamatkan', value: stats.savedPortions, icon: Leaf, color: 'text-emerald-600' },
-            { label: 'Toko Favorit', value: stats.favoriteStores, icon: Heart, color: 'text-red-500' },
-          ].map(({ label, value, icon: Icon, color }) => (
+            { label: 'Pesanan Selesai', value: stats.totalOrders, icon: ShoppingBag, bg: 'bg-primary-teal/10', color: 'text-primary-teal' },
+            { label: 'Porsi Terselamatkan', value: stats.savedPortions, icon: Leaf, bg: 'bg-emerald-600/10', color: 'text-emerald-600' },
+            { label: 'Toko Favorit', value: stats.favoriteStores, icon: Heart, bg: 'bg-red-500/10', color: 'text-red-500' },
+          ].map(({ label, value, icon: Icon, bg, color }) => (
             <div key={label} className="flex-1 flex flex-col items-center justify-center gap-1.5 px-2 relative after:absolute after:right-0 after:top-1/2 after:-translate-y-1/2 after:h-8 after:w-px after:bg-dark/5 last:after:hidden">
-              <div className={`p-2 rounded-full bg-opacity-10 ${color.replace('text-', 'bg-')}`}>
+              <div className={`p-2 rounded-full ${bg}`}>
                 <Icon className={`w-4 h-4 ${color}`} />
               </div>
               <div className="text-center">
