@@ -701,6 +701,9 @@ export default function LandingPage() {
         <div className="mx-auto max-w-7xl px-6 lg:px-12">
           
           <ScrollReveal direction="up" delay={0} className="text-center max-w-2xl mx-auto mb-14 sm:mb-16">
+            <div className="inline-flex items-center gap-2 bg-primary-teal/10 border border-primary-teal/20 rounded-full px-5 py-1.5 mb-4">
+              <span className="text-primary-teal text-xs font-bold font-poppins tracking-wider uppercase">Mudah & Cepat</span>
+            </div>
             <h2 className="text-3xl sm:text-4xl font-extrabold text-[#1A1A1A] font-poppins tracking-tight mb-3">
               Cara Kerja SisaRasa
             </h2>
@@ -742,6 +745,9 @@ export default function LandingPage() {
         <div className="mx-auto max-w-7xl px-6 lg:px-12">
           <ScrollReveal direction="up" delay={0}>
             <div className="text-center max-w-2xl mx-auto mb-12">
+              <div className="inline-flex items-center gap-2 bg-primary-teal/10 border border-primary-teal/20 rounded-full px-5 py-1.5 mb-4">
+                <span className="text-primary-teal text-xs font-bold font-poppins tracking-wider uppercase">Manfaat Utama</span>
+              </div>
               <h2 className="text-3xl sm:text-4xl font-extrabold text-[#1A1A1A] font-poppins tracking-tight mb-3">
                 Keuntungan untuk Semua
               </h2>
