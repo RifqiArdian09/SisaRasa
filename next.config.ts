@@ -2,9 +2,8 @@ import type { NextConfig } from "next";
 import withPWA from "@ducanh2912/next-pwa";
 
 const nextConfig: NextConfig = {
+  output: process.env.NODE_ENV === 'production' ? 'standalone' : undefined,
   images: {
-    // Bypass Next.js image optimization to avoid SSRF private-IP false-positive
-    // on Supabase's IPv6 NAT64 addresses (64:ff9b::...)
     unoptimized: true,
   },
 };

@@ -1,0 +1,44 @@
+steps:
+  - name: "gcr.io/cloud-builders/docker"
+    args:
+      - build
+      - "--tag=gcr.io/$PROJECT_ID/sisarasa:$COMMIT_SHA"
+      - "--tag=gcr.io/$PROJECT_ID/sisarasa:latest"
+      - "."
+
+  - name: "gcr.io/cloud-builders/docker"
+    args:
+      - push
+      - "gcr.io/$PROJECT_ID/sisarasa:$COMMIT_SHA"
+
+  - name: "gcr.io/google.com/cloudsdktool/cloud-sdk"
+    entrypoint: gcloud
+    args:
+      - run
+      - deploy
+      - sisarasa
+      - "--image=gcr.io/$PROJECT_ID/sisarasa:$COMMIT_SHA"
+      - "--region=asia-southeast2"
+      - "--platform=managed"
+      - "--allow-unauthenticated"
+      - "--memory=512Mi"
+      - "--min-instances=0"
+      - "--max-instances=5"
+      - "--concurrency=80"
+      - "--cpu=1"
+      - "--timeout=300"
+      - "--set-env-vars=NEXT_PUBLIC_SUPABASE_URL=${_SUPABASE_URL}"
+      - "--set-env-vars=NEXT_PUBLIC_SUPABASE_ANON_KEY=${_SUPABASE_ANON_KEY}"
+      - "--set-env-vars=FIREBASE_PROJECT_ID=${PROJECT_ID}"
+      - "--set-env-vars=FIREBASE_CLIENT_EMAIL=${_FIREBASE_CLIENT_EMAIL}"
+      - "--set-secrets=FIREBASE_PRIVATE_KEY=firebase-private-key:latest"
+
+substitutions:
+  _SUPABASE_URL: https://lfmllgbpjtsbjuqjezyp.supabase.co
+  _SUPABASE_ANON_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxmbWxsZ2JwanRzYmp1cWplenlwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkyNjgzNzEsImV4cCI6MjA5NDg0NDM3MX0.eAJIbtf3sL8AjpJ4thJYNydVIdKiJTo7cPnTov0cNIM
+  _FIREBASE_CLIENT_EMAIL: firebase-adminsdk-fbsvc@sisarasa-65427.iam.gserviceaccount.com
+
+options:
+  logging: CLOUD_LOGGING_ONLY
+
+timeout: 1200s
