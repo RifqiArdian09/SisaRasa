@@ -495,7 +495,7 @@ export default function LandingPage() {
               <ScrollReveal direction="left" delay={400}>
                 <div className="flex items-center gap-4">
                   <div className="flex -space-x-3">
-                    {['/images/avatar-mahasiswa.png', '/images/avatar-pekerja.png', '/images/avatar-eco-consionus.png'].map((src, i) => (
+                    {['https://images.unsplash.com/photo-1523240795612-9a054b0db644?w=40&h=40&fit=crop&crop=face', 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=40&h=40&fit=crop&crop=face', 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=40&h=40&fit=crop&crop=face'].map((src, i) => (
                       <div key={i} className="w-10 h-10 rounded-full border-2 border-white overflow-hidden bg-slate-100">
                         <Image src={src} alt="" width={40} height={40} className="object-cover w-full h-full" />
                       </div>
